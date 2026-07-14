@@ -60,6 +60,13 @@ ZERO32 = "0x" + "0" * 64
 MIN_GRADE = ("A", "B")
 
 
+def rel(p: Path) -> str:
+    try:
+        return str(p.relative_to(ROOT))
+    except ValueError:
+        return str(p)
+
+
 def canonical_bytes(obj) -> bytes:
     """RFC 8785 (JCS) serialization — reference impl, verified byte-identical to
     Cyfrin's official `clearsig descriptor-hash` on the ENS descriptors."""
@@ -206,7 +213,7 @@ def main() -> int:
         out = desc_path.parent / "sigs" / f"{name}.UNSIGNED.json"
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps(bundle, indent=2) + "\n")
-        print(f"  UNSIGNED evidence bundle -> {out.relative_to(ROOT)}")
+        print(f"  UNSIGNED evidence bundle -> {rel(out)}")
         print(f"  (missing: {', '.join(missing)} — schema UID is published on clearsigning.org)")
         return 0
 
@@ -223,7 +230,7 @@ def main() -> int:
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(bundle, indent=2) + "\n")
     print(f"  ✅ signed by {acct.address}")
-    print(f"  attestation -> {out.relative_to(ROOT)}")
+    print(f"  attestation -> {rel(out)}")
     return 0
 
 
