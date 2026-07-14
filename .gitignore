@@ -6,3 +6,4 @@ registry/**/_draft.json
 registry/**/_resolved.json
 .DS_Store
 registry/**/_samples.tests.json
+.attester-keys/

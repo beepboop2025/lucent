@@ -34,6 +34,7 @@ Env:  ATTESTER_PRIVATE_KEY  (never committed; throwaway ok for dry runs)
       ETHERSCAN_API_KEY     (for semverify evidence)
 Usage:
     python scripts/attest.py <descriptor.json> [--schema 0x…] [--require-sim]
+    python scripts/attest.py <descriptor.json> --pq [--pq-scheme ml_dsa_65]  # + quantum-safe co-signature
     python scripts/attest.py <descriptor.json> --profile   # emit auditor profile stub
 """
 
@@ -75,6 +76,62 @@ def canonical_bytes(obj) -> bytes:
 
 def descriptor_hash(desc: dict) -> str:
     return "0x" + keccak(canonical_bytes(desc)).hex()
+
+
+def flag_value(name: str, default=None):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
+
+
+# ---- post-quantum co-signing (crypto-agility) ------------------------------
+# ECDSA (the EAS signature) falls to Shor once a CRQC exists; keccak256 (the
+# descriptorHash) does not (Grover only halves it). So we keep the hash and add
+# a quantum-safe signature over the SAME commitment. Attestations are long-lived
+# trust artifacts — "harvest now, forge later" — which is exactly the class
+# worth PQ-signing before a CRQC arrives, not after.
+PQ_SCHEMES = {
+    "ml_dsa_44": "FIPS 204 (Dilithium2) — smallest ML-DSA, ~2.4KB sig",
+    "ml_dsa_65": "FIPS 204 (Dilithium3) — balanced default, ~3.3KB sig",
+    "ml_dsa_87": "FIPS 204 (Dilithium5) — highest ML-DSA margin, ~4.6KB sig",
+    "falcon_512": "FIPS 206 draft — compact ~0.65KB sig, but float/side-channel risk (Donjon-flagged)",
+    "sphincs_sha2_128s_simple": "SLH-DSA (FIPS 205) — hash-based, most conservative, large ~7.9KB sig",
+}
+PQ_DEFAULT = "ml_dsa_65"
+
+
+def pq_keypair(scheme: str):
+    """Attester PQ keypair: env, else a gitignored keyfile, else generate+persist.
+    The secret key is NEVER written to the tracked tree."""
+    sk_env, pk_env = os.environ.get("LUCENT_PQ_SECRET_KEY"), os.environ.get("LUCENT_PQ_PUBLIC_KEY")
+    if sk_env and pk_env:
+        return bytes.fromhex(pk_env.removeprefix("0x")), bytes.fromhex(sk_env.removeprefix("0x")), "env"
+    keyfile = ROOT / ".attester-keys" / f"{scheme}.json"      # gitignored
+    if keyfile.exists():
+        k = json.loads(keyfile.read_text())
+        return bytes.fromhex(k["publicKey"]), bytes.fromhex(k["secretKey"]), "keyfile"
+    from importlib import import_module
+    mod = import_module(f"pqcrypto.sign.{scheme}")
+    pk, sk = mod.generate_keypair()
+    keyfile.parent.mkdir(parents=True, exist_ok=True)
+    keyfile.write_text(json.dumps({
+        "scheme": scheme, "publicKey": pk.hex(), "secretKey": sk.hex(),
+        "_warning": "GENERATED demo key. A real attester generates this OFFLINE "
+                    "and keeps secretKey out of any repo. This dir is gitignored.",
+    }, indent=2) + "\n")
+    return pk, sk, "generated"
+
+
+def pq_attest(scheme: str, dhash_hex: str) -> dict:
+    """Quantum-safe signature over the descriptorHash (scheme-agnostic claim)."""
+    from importlib import import_module
+    mod = import_module(f"pqcrypto.sign.{scheme}")
+    pk, sk, src = pq_keypair(scheme)
+    sig = mod.sign(sk, bytes.fromhex(dhash_hex.removeprefix("0x")))
+    return {
+        "scheme": scheme, "standard": PQ_SCHEMES.get(scheme, "post-quantum"),
+        "signs": "descriptorHash", "keySource": src,
+        "publicKey": "0x" + pk.hex(), "signature": "0x" + sig.hex(),
+        "verify": f"pqcrypto.sign.{scheme}.verify(publicKey, descriptorHash, signature)",
+    }
 
 
 def run_semverify(desc_path: Path) -> dict:
@@ -205,6 +262,14 @@ def main() -> int:
             "semverify": sim,
         },
     }
+
+    # Optional crypto-agile post-quantum co-signature over the same hash.
+    if "--pq" in sys.argv:
+        scheme = flag_value("--pq-scheme", PQ_DEFAULT)
+        pqa = pq_attest(scheme, dhash)
+        bundle["pqAttestation"] = pqa
+        print(f"  pq-sign    {scheme} ✓ quantum-safe "
+              f"({len(pqa['signature']) // 2 - 1} B sig, key: {pqa['keySource']})")
 
     if not (schema and acct):
         missing = [w for w, v in

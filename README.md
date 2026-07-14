@@ -107,6 +107,31 @@ assertions run against a fork replay (Foundry `cast run`) — not yet wired, sin
 we verify real vectors. The role check is heuristic on field labels; it catches
 recipient hiding and recipient/label spoofing, not every possible semantic lie.
 
+## Quantum-safe attestations (`attest.py --pq`)
+
+An attestation's `descriptorHash` is `keccak256` — already quantum-safe (Grover
+only halves it). Its ECDSA signature is **not** — Shor forges it once a CRQC
+exists. And attestations are long-lived trust artifacts: *harvest now, forge
+later*. So `--pq` adds a **post-quantum signature over the same hash**, keeping
+Lucent's attestations verifiable after the migration. The commitment is
+unchanged; only the signature scheme is swapped — crypto-agility by design.
+
+| Scheme | Standard | Sig size | Note |
+|--------|----------|----------|------|
+| `ml_dsa_65` (default) | FIPS 204 (Dilithium3) | ~3.3 KB | balanced; the sensible default |
+| `ml_dsa_44` / `ml_dsa_87` | FIPS 204 | ~2.4 / ~4.6 KB | lower / higher margin |
+| `falcon_512` | FIPS 206 draft | **~0.65 KB** | compact, but float/side-channel risk (Ledger Donjon-flagged) |
+| `sphincs_sha2_128s_simple` | SLH-DSA (FIPS 205) | ~7.9 KB | hash-based, most conservative |
+
+Verified: the PQ signature binds the exact `descriptorHash` and rejects a
+tampered one. Keys live in a gitignored `.attester-keys/` (or `LUCENT_PQ_*`
+env); a real attester generates them offline.
+
+**Honestly:** no cryptographically-relevant quantum computer exists in 2026, so
+this is *positioning*, not urgency — but the cost is one flag, and there is no
+standard yet for PQ attestations (first-mover, with divergence risk). On-device,
+multi-KB signatures are a real constraint for constrained secure elements.
+
 ### Discovery output (seed run)
 
 ```

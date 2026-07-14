@@ -14,7 +14,7 @@ discover:
 setup:
 	python3.12 -m venv $(VENV)
 	$(PY) -m pip install -q --upgrade pip
-	$(PY) -m pip install -q erc7730 eth-account rfc8785
+	$(PY) -m pip install -q erc7730 eth-account rfc8785 pqcrypto rfc8785
 
 ## fetch: pull a verified ABI from Sourcify.  make fetch CHAIN=1 ADDR=0x...
 fetch:
