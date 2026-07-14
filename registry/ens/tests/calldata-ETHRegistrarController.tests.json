@@ -1,0 +1,109 @@
+{
+  "$schema": "../../../specs/erc7730-tests.schema.json",
+  "tests": [
+    {
+      "description": "renew \u2014 real tx 0x206d86c9",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x206d86c91ac680b3a1c6cf45e3b412764be906acfe134067dd30d98b3fab4765",
+      "expectedTexts": [
+        "Renew .eth name",
+        "Name (.eth)",
+        "ozzymanreviews",
+        "Amount paid",
+        "0.003079 ETH",
+        "Renewal period",
+        "1 year"
+      ]
+    },
+    {
+      "description": "register \u2014 real tx 0x9ba15514",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x9ba1551480191f4e19b6cc62de8d35ec8d83b7a545400387a6873b5c4629fe31",
+      "expectedTexts": [
+        "Register .eth name",
+        "Name (.eth)",
+        "hormuzassdev",
+        "Amount paid",
+        "0.002831 ETH",
+        "Registration period",
+        "1 year",
+        "Owner",
+        "0x8Dea65F0866101d74DB9436af0B62AC4D3B05E14",
+        "Resolver",
+        "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63",
+        "Set as primary name",
+        "true"
+      ]
+    },
+    {
+      "description": "commit \u2014 real tx 0x37a9cf69",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x37a9cf696c7a5a82c4d44d847f40986edea227acb6d2377382637ce26273de95",
+      "expectedTexts": [
+        "Commit to an ENS registration",
+        "Commitment hash",
+        "0x777f0defde08e32b3b073021034945c1d867cdbfa5c8906714f28dc29e416dba"
+      ]
+    },
+    {
+      "description": "renew \u2014 real tx 0xcb2a91c5",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0xcb2a91c51e909ec229f8822241ddbc5d17f993dc8ecf0d5dc0f073abc3c5d2a5",
+      "expectedTexts": [
+        "Renew .eth name",
+        "Name (.eth)",
+        "ungravel-founders",
+        "Amount paid",
+        "0.000214 ETH",
+        "Renewal period",
+        "28 days"
+      ]
+    },
+    {
+      "description": "register \u2014 real tx 0x1490e1cb",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x1490e1cb46be26d2db60cb361a060d66923f0f7b11a0c516bfe1b98e75ab4beb",
+      "expectedTexts": [
+        "Register .eth name",
+        "Name (.eth)",
+        "beulah",
+        "Amount paid",
+        "0.002872 ETH",
+        "Registration period",
+        "1 year",
+        "Owner",
+        "0xF437c5B4c87e66F2D3332f8804a44c6a6091336f",
+        "Resolver",
+        "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63",
+        "Set as primary name",
+        "true"
+      ]
+    },
+    {
+      "description": "commit \u2014 real tx 0x7d375f72",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x7d375f724e9956e5df587ab0f733806146ae57bf994624de993d67e778749489",
+      "expectedTexts": [
+        "Commit to an ENS registration",
+        "Commitment hash",
+        "0xa4719b55007a25e8bdf77126f6c060a90e77de9160135032f87d5c22593faa67"
+      ]
+    },
+    {
+      "description": "withdraw \u2014 real tx 0x0070d8fc",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x0070d8fc3d70d89be94b1d706868408c3918a408d09480499b232cdfed6064ed",
+      "expectedTexts": [
+        "Withdraw fees"
+      ]
+    },
+    {
+      "description": "withdraw \u2014 real tx 0x08f9b673",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x08f9b6732db5b25c3daf1b83576358266dc5941cead71c5d82a56a9340d97da3",
+      "expectedTexts": [
+        "Withdraw fees"
+      ]
+    }
+  ]
+}

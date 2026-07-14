@@ -1,0 +1,47 @@
+{
+  "$schema": "../../../specs/erc7730-tests.schema.json",
+  "tests": [
+    {
+      "description": "renewAll \u2014 real tx 0xa12fedf3",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0xa12fedf3d5804d82edb6d7c8a4a804e614af7ad7fab5016857a99d6f8882d83f",
+      "expectedTexts": [
+        "Renew .eth names",
+        "Names (.eth)",
+        "7 items",
+        "Amount paid",
+        "0.002221 ETH",
+        "Renewal period",
+        "36 days"
+      ]
+    },
+    {
+      "description": "renewAll \u2014 real tx 0xb4ec8192",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0xb4ec819214f6810fa7264ec0f5f32d1d305bd8db32c695d526080c7ed26cfd89",
+      "expectedTexts": [
+        "Renew .eth names",
+        "Names (.eth)",
+        "50 items",
+        "Amount paid",
+        "0.021068 ETH",
+        "Renewal period",
+        "7 days"
+      ]
+    },
+    {
+      "description": "renewAll \u2014 real tx 0x155acc24",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x155acc24fbbabc2bc491b2f6c7b0ea139d91732e5f0f9fb7903a24bce53412c8",
+      "expectedTexts": [
+        "Renew .eth names",
+        "Names (.eth)",
+        "50 items",
+        "Amount paid",
+        "0.164125 ETH",
+        "Renewal period",
+        "7 days"
+      ]
+    }
+  ]
+}

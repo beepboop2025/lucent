@@ -1,0 +1,725 @@
+{
+  "$schema": "../../specs/erc7730-v2.schema.json",
+  "context": {
+    "$id": "ens-name-wrapper",
+    "contract": {
+      "deployments": [
+        {
+          "chainId": 1,
+          "address": "0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "owner": "ENS",
+    "info": {
+      "legalName": "True Names Limited",
+      "url": "https://ens.domains"
+    },
+    "contractName": "NameWrapper"
+  },
+  "display": {
+    "formats": {
+      "registerAndWrapETH2LD(string,address,uint256,address,uint16)": {
+        "intent": "Register & wrap .eth",
+        "fields": [
+          {
+            "label": "Name (.eth)",
+            "format": "raw",
+            "path": "#.label",
+            "visible": "always"
+          },
+          {
+            "label": "Owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.wrappedOwner"
+          },
+          {
+            "label": "Duration",
+            "format": "duration",
+            "path": "#.duration"
+          },
+          {
+            "label": "Resolver",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.resolver"
+          },
+          {
+            "label": "Fuses",
+            "format": "raw",
+            "path": "#.ownerControlledFuses"
+          }
+        ]
+      },
+      "wrapETH2LD(string,address,uint16,address)": {
+        "intent": "Wrap .eth name",
+        "interpolatedIntent": "Wrap {label}",
+        "fields": [
+          {
+            "label": "Name (.eth)",
+            "format": "raw",
+            "path": "#.label",
+            "visible": "always"
+          },
+          {
+            "label": "Wrapped owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.wrappedOwner"
+          },
+          {
+            "label": "Fuses",
+            "format": "raw",
+            "path": "#.ownerControlledFuses"
+          },
+          {
+            "label": "Resolver",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.resolver"
+          }
+        ]
+      },
+      "wrap(bytes,address,address)": {
+        "intent": "Wrap name",
+        "fields": [
+          {
+            "label": "Name (DNS-enc)",
+            "format": "raw",
+            "path": "#.name",
+            "visible": "always"
+          },
+          {
+            "label": "Wrapped owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.wrappedOwner"
+          },
+          {
+            "label": "Resolver",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.resolver"
+          }
+        ]
+      },
+      "unwrapETH2LD(bytes32,address,address)": {
+        "intent": "Unwrap .eth name",
+        "fields": [
+          {
+            "label": "Name (hash)",
+            "format": "raw",
+            "path": "#.labelhash",
+            "visible": "always"
+          },
+          {
+            "label": "Registrant",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.registrant"
+          },
+          {
+            "label": "Controller",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract",
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.controller"
+          }
+        ]
+      },
+      "unwrap(bytes32,bytes32,address)": {
+        "intent": "Unwrap name",
+        "fields": [
+          {
+            "label": "Parent (hash)",
+            "format": "raw",
+            "path": "#.parentNode",
+            "visible": "always"
+          },
+          {
+            "label": "Label hash",
+            "path": "#.labelhash",
+            "visible": "never"
+          },
+          {
+            "label": "Controller",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract",
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.controller"
+          }
+        ]
+      },
+      "renew(uint256,uint256)": {
+        "intent": "Renew wrapped name",
+        "fields": [
+          {
+            "label": "Name (token id)",
+            "format": "raw",
+            "path": "#.tokenId",
+            "visible": "always"
+          },
+          {
+            "label": "Duration",
+            "format": "duration",
+            "path": "#.duration"
+          }
+        ]
+      },
+      "upgrade(bytes,bytes)": {
+        "intent": "Upgrade to new wrapper",
+        "fields": [
+          {
+            "label": "Name (DNS-enc)",
+            "format": "raw",
+            "path": "#.name",
+            "visible": "always"
+          },
+          {
+            "label": "Extra data",
+            "path": "#.extraData",
+            "visible": "never"
+          }
+        ]
+      },
+      "setSubnodeRecord(bytes32,string,address,address,uint64,uint32,uint64)": {
+        "intent": "Create subname + records",
+        "fields": [
+          {
+            "label": "Subname label",
+            "format": "raw",
+            "path": "#.label",
+            "visible": "always"
+          },
+          {
+            "label": "Owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.owner"
+          },
+          {
+            "label": "Resolver",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.resolver"
+          },
+          {
+            "label": "Expiry",
+            "format": "date",
+            "params": {
+              "encoding": "timestamp"
+            },
+            "path": "#.expiry"
+          },
+          {
+            "label": "Fuses",
+            "format": "raw",
+            "path": "#.fuses"
+          },
+          {
+            "label": "Parent node",
+            "path": "#.parentNode",
+            "visible": "never"
+          },
+          {
+            "label": "TTL",
+            "path": "#.ttl",
+            "visible": "never"
+          }
+        ]
+      },
+      "setSubnodeOwner(bytes32,string,address,uint32,uint64)": {
+        "intent": "Create subname",
+        "fields": [
+          {
+            "label": "Subname label",
+            "format": "raw",
+            "path": "#.label",
+            "visible": "always"
+          },
+          {
+            "label": "Owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.owner"
+          },
+          {
+            "label": "Expiry",
+            "format": "date",
+            "params": {
+              "encoding": "timestamp"
+            },
+            "path": "#.expiry"
+          },
+          {
+            "label": "Fuses",
+            "format": "raw",
+            "path": "#.fuses"
+          },
+          {
+            "label": "Parent node",
+            "path": "#.parentNode",
+            "visible": "never"
+          }
+        ]
+      },
+      "extendExpiry(bytes32,bytes32,uint64)": {
+        "intent": "Extend subname expiry",
+        "fields": [
+          {
+            "label": "Parent (hash)",
+            "format": "raw",
+            "path": "#.parentNode",
+            "visible": "always"
+          },
+          {
+            "label": "Label hash",
+            "path": "#.labelhash",
+            "visible": "never"
+          },
+          {
+            "label": "New expiry",
+            "format": "date",
+            "params": {
+              "encoding": "timestamp"
+            },
+            "path": "#.expiry"
+          }
+        ]
+      },
+      "setResolver(bytes32,address)": {
+        "intent": "Set resolver",
+        "fields": [
+          {
+            "label": "Name (hash)",
+            "format": "raw",
+            "path": "#.node",
+            "visible": "always"
+          },
+          {
+            "label": "Resolver",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.resolver"
+          }
+        ]
+      },
+      "setRecord(bytes32,address,address,uint64)": {
+        "intent": "Set name record",
+        "fields": [
+          {
+            "label": "Name (hash)",
+            "format": "raw",
+            "path": "#.node",
+            "visible": "always"
+          },
+          {
+            "label": "Owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.owner"
+          },
+          {
+            "label": "Resolver",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.resolver"
+          },
+          {
+            "label": "TTL",
+            "path": "#.ttl",
+            "visible": "never"
+          }
+        ]
+      },
+      "setTTL(bytes32,uint64)": {
+        "intent": "Set name TTL",
+        "fields": [
+          {
+            "label": "Name (hash)",
+            "format": "raw",
+            "path": "#.node",
+            "visible": "always"
+          },
+          {
+            "label": "TTL (seconds)",
+            "format": "raw",
+            "path": "#.ttl"
+          }
+        ]
+      },
+      "setFuses(bytes32,uint16)": {
+        "intent": "Burn name permissions",
+        "fields": [
+          {
+            "label": "Name (hash)",
+            "format": "raw",
+            "path": "#.node",
+            "visible": "always"
+          },
+          {
+            "label": "Fuses",
+            "format": "raw",
+            "path": "#.ownerControlledFuses",
+            "visible": "always"
+          }
+        ]
+      },
+      "setChildFuses(bytes32,bytes32,uint32,uint64)": {
+        "intent": "Set child permissions",
+        "fields": [
+          {
+            "label": "Parent (hash)",
+            "format": "raw",
+            "path": "#.parentNode",
+            "visible": "always"
+          },
+          {
+            "label": "Label hash",
+            "path": "#.labelhash",
+            "visible": "never"
+          },
+          {
+            "label": "Fuses",
+            "format": "raw",
+            "path": "#.fuses",
+            "visible": "always"
+          },
+          {
+            "label": "Expiry",
+            "format": "date",
+            "params": {
+              "encoding": "timestamp"
+            },
+            "path": "#.expiry"
+          }
+        ]
+      },
+      "setApprovalForAll(address,bool)": {
+        "intent": "Approve operator (all)",
+        "fields": [
+          {
+            "label": "Operator",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract",
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.operator"
+          },
+          {
+            "label": "Approved",
+            "format": "raw",
+            "path": "#.approved",
+            "visible": "always"
+          }
+        ]
+      },
+      "approve(address,uint256)": {
+        "intent": "Approve name transfer",
+        "fields": [
+          {
+            "label": "Approved to",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.to"
+          },
+          {
+            "label": "Name (token id)",
+            "format": "raw",
+            "path": "#.tokenId",
+            "visible": "always"
+          }
+        ]
+      },
+      "safeTransferFrom(address,address,uint256,uint256,bytes)": {
+        "intent": "Transfer wrapped name",
+        "fields": [
+          {
+            "label": "From",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.from"
+          },
+          {
+            "label": "To",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.to"
+          },
+          {
+            "label": "Name (token id)",
+            "format": "raw",
+            "path": "#.id",
+            "visible": "always"
+          },
+          {
+            "label": "Amount",
+            "format": "raw",
+            "path": "#.amount"
+          },
+          {
+            "label": "Data",
+            "path": "#.data",
+            "visible": "never"
+          }
+        ]
+      },
+      "safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)": {
+        "intent": "Batch transfer names",
+        "fields": [
+          {
+            "label": "From",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.from"
+          },
+          {
+            "label": "To",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.to"
+          },
+          {
+            "label": "Token ids",
+            "format": "raw",
+            "path": "#.ids.[]",
+            "visible": "always"
+          },
+          {
+            "label": "Amounts",
+            "path": "#.amounts.[]",
+            "visible": "never"
+          },
+          {
+            "label": "Data",
+            "path": "#.data",
+            "visible": "never"
+          }
+        ]
+      },
+      "setController(address,bool)": {
+        "intent": "Set controller",
+        "fields": [
+          {
+            "label": "Controller",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.controller"
+          },
+          {
+            "label": "Active",
+            "format": "raw",
+            "path": "#.active"
+          }
+        ]
+      },
+      "setMetadataService(address)": {
+        "intent": "Set metadata service",
+        "fields": [
+          {
+            "label": "Service",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#._metadataService"
+          }
+        ]
+      },
+      "setUpgradeContract(address)": {
+        "intent": "Set upgrade contract",
+        "fields": [
+          {
+            "label": "Upgrade contract",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#._upgradeAddress"
+          }
+        ]
+      },
+      "recoverFunds(address,address,uint256)": {
+        "intent": "Recover tokens",
+        "fields": [
+          {
+            "label": "Token",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "token"
+              ]
+            },
+            "path": "#._token"
+          },
+          {
+            "label": "Recipient",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#._to"
+          },
+          {
+            "label": "Amount (raw)",
+            "format": "raw",
+            "path": "#._amount"
+          }
+        ]
+      },
+      "transferOwnership(address)": {
+        "intent": "Transfer ownership",
+        "fields": [
+          {
+            "label": "New owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.newOwner"
+          }
+        ]
+      },
+      "renounceOwnership()": {
+        "intent": "Renounce ownership",
+        "fields": []
+      },
+      "onERC721Received(address,address,uint256,bytes)": {
+        "intent": "Receive ENS name",
+        "fields": [
+          {
+            "label": "Operator",
+            "path": "#.to",
+            "visible": "never"
+          },
+          {
+            "label": "Name (token id)",
+            "format": "raw",
+            "path": "#.tokenId",
+            "visible": "always"
+          },
+          {
+            "label": "Data",
+            "path": "#.data",
+            "visible": "never"
+          }
+        ]
+      }
+    }
+  }
+}

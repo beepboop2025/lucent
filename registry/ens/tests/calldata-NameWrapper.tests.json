@@ -1,0 +1,89 @@
+{
+  "$schema": "../../../specs/erc7730-tests.schema.json",
+  "tests": [
+    {
+      "description": "setSubnodeRecord \u2014 real tx 0x3f0eb1c0",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x3f0eb1c0f622b90fb9a57466cf8c5d12b88d51cb535d05c7258788f95602dec3",
+      "expectedTexts": [
+        "Create subname + records",
+        "Subname label",
+        "ariableyes",
+        "Owner",
+        "0xd9C13d1BAdC0fe49B9eECB41299832Ac42D08972",
+        "Resolver",
+        "0xF29100983E058B709F3D539b0c765937B804AC15",
+        "Expiry",
+        "0",
+        "Fuses",
+        "0"
+      ]
+    },
+    {
+      "description": "setResolver \u2014 real tx 0xe944d853",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0xe944d8539898a92c65e0481aff795c7e5acabafde1571e4b5203cb6394d6cf4c",
+      "expectedTexts": [
+        "Set resolver",
+        "Name (hash)",
+        "0xb8be086d16a1de99fffc8678777122732fb9b4a9dbbf18547c95dd7b0de1ca69",
+        "Resolver",
+        "0xbB1bAA0eE950597301fE3c9fdb7e6382e066Aa8D"
+      ]
+    },
+    {
+      "description": "setApprovalForAll \u2014 real tx 0xe544ea77",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0xe544ea77b174140823175d02efe78152457cf5fb530609502dacddd855446317",
+      "expectedTexts": [
+        "Approve operator (all)",
+        "Operator",
+        "0x52Da865e14b8EF4c2ed0Da82be92Cd43EE701af4",
+        "Approved",
+        "true"
+      ]
+    },
+    {
+      "description": "safeTransferFrom \u2014 real tx 0x3a20a718",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x3a20a7188abf813d0ddbed0681bfa0f690747f93d856b77f08ff7aa1116f07a7",
+      "expectedTexts": [
+        "Transfer wrapped name",
+        "From",
+        "0x61e8C16A67Be3c0d16E8113a688Ecfc963e4503E",
+        "To",
+        "0xE206d7B738212264319bdA47264CC79b4d227C24",
+        "Name (token id)",
+        "89191581517106381409870776762956898016061361294468039467715320693523595024981",
+        "Amount",
+        "1"
+      ]
+    },
+    {
+      "description": "unwrap \u2014 real tx 0x7b979fcb",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0x7b979fcb7bec9abe43ef5f2eebf381ae4c80f2709706f57f01f881075f0372ec",
+      "expectedTexts": [
+        "Unwrap name",
+        "Parent (hash)",
+        "0x243fb774dbf2d211d36b808a4ff6ee48220de262d10ea914ab74237c91e3b26c",
+        "Controller",
+        "0xA7973a975b79D561A96474F34999EC2a790d6354"
+      ]
+    },
+    {
+      "description": "unwrapETH2LD \u2014 real tx 0xfefab2bf",
+      "rawTx": "Error! Missing Or invalid Action name",
+      "txHash": "0xfefab2bf625b5a209868abffdd13cd7a8c40c504ed8222ebcd3318464a483a8a",
+      "expectedTexts": [
+        "Unwrap .eth name",
+        "Name (hash)",
+        "0xb2279e0730a2a853f66d62dc9e5a84344a4e5b6701b543ecb292650e7ec05c78",
+        "Registrant",
+        "0x908a44389855C2845dfbcd43adcDf35A8b3e84aF",
+        "Controller",
+        "0x908a44389855C2845dfbcd43adcDf35A8b3e84aF"
+      ]
+    }
+  ]
+}

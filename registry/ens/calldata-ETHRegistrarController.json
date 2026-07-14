@@ -1,0 +1,569 @@
+{
+  "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-v2.schema.json",
+  "context": {
+    "$id": "ens-eth-registrar-controller",
+    "contract": {
+      "abi": [
+        {
+          "type": "function",
+          "name": "MIN_REGISTRATION_DURATION",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "available",
+          "inputs": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "commit",
+          "inputs": [
+            {
+              "name": "commitment",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "commitments",
+          "inputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "makeCommitment",
+          "inputs": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "owner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "duration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "secret",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "resolver",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "data",
+              "type": "bytes[]",
+              "internalType": "bytes[]"
+            },
+            {
+              "name": "reverseRecord",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "ownerControlledFuses",
+              "type": "uint16",
+              "internalType": "uint16"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "maxCommitmentAge",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "minCommitmentAge",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "nameWrapper",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract INameWrapper"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "owner",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "prices",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract IPriceOracle"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "recoverFunds",
+          "inputs": [
+            {
+              "name": "_token",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "_to",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "_amount",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "register",
+          "inputs": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "owner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "duration",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "secret",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "resolver",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "data",
+              "type": "bytes[]",
+              "internalType": "bytes[]"
+            },
+            {
+              "name": "reverseRecord",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "ownerControlledFuses",
+              "type": "uint16",
+              "internalType": "uint16"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "payable"
+        },
+        {
+          "type": "function",
+          "name": "renew",
+          "inputs": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "duration",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "payable"
+        },
+        {
+          "type": "function",
+          "name": "renounceOwnership",
+          "inputs": [],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "rentPrice",
+          "inputs": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "duration",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "price",
+              "type": "tuple",
+              "internalType": "struct IPriceOracle.Price",
+              "components": [
+                {
+                  "name": "base",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "premium",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                }
+              ]
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "reverseRegistrar",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "internalType": "contract ReverseRegistrar"
+            }
+          ],
+          "stateMutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "supportsInterface",
+          "inputs": [
+            {
+              "name": "interfaceID",
+              "type": "bytes4",
+              "internalType": "bytes4"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "transferOwnership",
+          "inputs": [
+            {
+              "name": "newOwner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        },
+        {
+          "type": "function",
+          "name": "valid",
+          "inputs": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "pure"
+        },
+        {
+          "type": "function",
+          "name": "withdraw",
+          "inputs": [],
+          "outputs": [],
+          "stateMutability": "nonpayable"
+        }
+      ],
+      "deployments": [
+        {
+          "chainId": 1,
+          "address": "0x253553366Da8546fC250F225fe3d25d0C782303b"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "owner": "ENS",
+    "info": {
+      "legalName": "True Names Limited",
+      "url": "https://ens.domains"
+    },
+    "contractName": "ETHRegistrarController"
+  },
+  "display": {
+    "formats": {
+      "commit(bytes32)": {
+        "intent": "Commit to an ENS registration",
+        "fields": [
+          {
+            "label": "Commitment hash",
+            "format": "raw",
+            "path": "#.commitment"
+          }
+        ]
+      },
+      "register(string,address,uint256,bytes32,address,bytes[],bool,uint16)": {
+        "intent": "Register .eth name",
+        "interpolatedIntent": "Register {name}",
+        "fields": [
+          {
+            "label": "Name (.eth)",
+            "format": "raw",
+            "path": "#.name",
+            "visible": "always"
+          },
+          {
+            "label": "Amount paid",
+            "format": "amount",
+            "path": "@.value",
+            "visible": "always"
+          },
+          {
+            "label": "Registration period",
+            "format": "duration",
+            "path": "#.duration",
+            "visible": "always"
+          },
+          {
+            "label": "Owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.owner",
+            "visible": "always"
+          },
+          {
+            "label": "Resolver",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "contract"
+              ]
+            },
+            "path": "#.resolver"
+          },
+          {
+            "label": "Set as primary name",
+            "format": "raw",
+            "path": "#.reverseRecord"
+          },
+          {
+            "label": "Commit secret",
+            "path": "#.secret",
+            "visible": "never"
+          },
+          {
+            "label": "Resolver records",
+            "path": "#.data.[]",
+            "visible": "never"
+          },
+          {
+            "label": "Owner fuses",
+            "path": "#.ownerControlledFuses",
+            "visible": "never"
+          }
+        ]
+      },
+      "renew(string,uint256)": {
+        "intent": "Renew .eth name",
+        "interpolatedIntent": "Renew {name}",
+        "fields": [
+          {
+            "label": "Name (.eth)",
+            "format": "raw",
+            "path": "#.name",
+            "visible": "always"
+          },
+          {
+            "label": "Amount paid",
+            "format": "amount",
+            "path": "@.value",
+            "visible": "always"
+          },
+          {
+            "label": "Renewal period",
+            "format": "duration",
+            "path": "#.duration",
+            "visible": "always"
+          }
+        ]
+      },
+      "recoverFunds(address,address,uint256)": {
+        "intent": "Recover tokens",
+        "fields": [
+          {
+            "label": "Token",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "token"
+              ]
+            },
+            "path": "#._token"
+          },
+          {
+            "label": "Recipient",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#._to"
+          },
+          {
+            "label": "Amount (raw)",
+            "format": "raw",
+            "path": "#._amount"
+          }
+        ]
+      },
+      "transferOwnership(address)": {
+        "intent": "Transfer controller ownership",
+        "fields": [
+          {
+            "label": "New owner",
+            "format": "addressName",
+            "params": {
+              "types": [
+                "eoa",
+                "wallet"
+              ]
+            },
+            "path": "#.newOwner"
+          }
+        ]
+      },
+      "renounceOwnership()": {
+        "intent": "Renounce controller ownership",
+        "fields": []
+      },
+      "withdraw()": {
+        "intent": "Withdraw fees",
+        "fields": []
+      }
+    }
+  }
+}

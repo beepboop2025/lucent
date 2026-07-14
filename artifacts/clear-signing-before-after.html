@@ -1,0 +1,248 @@
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --bg-panel: #ffffff;
+    --ink: #10141c;
+    --ink-soft: #454e5e;
+    --ink-faint: #7a8397;
+    --line: #dde1e8;
+    --accent: #b9791c;        /* honey — brand, used sparingly */
+    --accent-soft: #f3e6cf;
+    --danger: #c0362c;
+    --danger-soft: #f6e0dd;
+    --safe: #1f7a4d;
+    --safe-soft: #dcefe3;
+    --screen-bg: #05070c;
+    --screen-ink: #e9edf4;
+    --screen-faint: #7f8ba3;
+    --shadow: 0 1px 2px rgba(16,20,28,.06), 0 12px 30px rgba(16,20,28,.10);
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0d13;
+      --bg-panel: #12161f;
+      --ink: #eef1f6;
+      --ink-soft: #aab3c4;
+      --ink-faint: #6f7a8d;
+      --line: #232a36;
+      --accent: #e0a94f;
+      --accent-soft: #2a2113;
+      --danger: #ec6a63;
+      --danger-soft: #2c1614;
+      --safe: #46c088;
+      --safe-soft: #12241a;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f4f6; --bg-panel: #ffffff; --ink: #10141c; --ink-soft: #454e5e;
+    --ink-faint: #7a8397; --line: #dde1e8; --accent: #b9791c; --accent-soft: #f3e6cf;
+    --danger: #c0362c; --danger-soft: #f6e0dd; --safe: #1f7a4d; --safe-soft: #dcefe3;
+    --shadow: 0 1px 2px rgba(16,20,28,.06), 0 12px 30px rgba(16,20,28,.10);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0a0d13; --bg-panel: #12161f; --ink: #eef1f6; --ink-soft: #aab3c4;
+    --ink-faint: #6f7a8d; --line: #232a36; --accent: #e0a94f; --accent-soft: #2a2113;
+    --danger: #ec6a63; --danger-soft: #2c1614; --safe: #46c088; --safe-soft: #12241a;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; }
+  .wrap {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100%;
+    padding: clamp(20px, 5vw, 64px) clamp(16px, 5vw, 48px) 56px;
+    line-height: 1.5;
+  }
+  .inner { max-width: 1000px; margin: 0 auto; }
+
+  .eyebrow {
+    font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(30px, 5.4vw, 52px); line-height: 1.04; margin: 0 0 16px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 680;
+  }
+  h1 .q { color: var(--ink-faint); }
+  .lede {
+    font-size: clamp(16px, 2.1vw, 19px); color: var(--ink-soft);
+    max-width: 62ch; margin: 0 0 40px;
+  }
+
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 3vw, 28px);
+    align-items: start;
+  }
+  @media (max-width: 720px) { .compare { grid-template-columns: 1fr; } }
+
+  .col-head {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 13px; font-weight: 600; margin: 0 0 12px; letter-spacing: .01em;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot.bad { background: var(--danger); }
+  .dot.good { background: var(--safe); }
+  .col-head .tag {
+    margin-left: auto; font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 2px 8px; border-radius: 999px; letter-spacing: .02em;
+  }
+  .tag.bad { color: var(--danger); background: var(--danger-soft); }
+  .tag.good { color: var(--safe); background: var(--safe-soft); }
+
+  /* hardware-wallet device */
+  .device {
+    background: linear-gradient(180deg, #1b2130, #0c0f16);
+    border-radius: 18px; padding: 16px 16px 13px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,.06);
+  }
+  .screen {
+    background: var(--screen-bg); border-radius: 9px;
+    padding: 15px 15px 16px; min-height: 250px;
+    font-family: var(--mono); color: var(--screen-ink);
+    display: flex; flex-direction: column;
+    border: 1px solid rgba(255,255,255,.05);
+  }
+  .banner {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 600; letter-spacing: .02em;
+    padding: 7px 9px; border-radius: 6px; margin-bottom: 12px;
+  }
+  .banner.bad { color: #ffb4ae; background: rgba(192,54,44,.20); }
+  .banner.good { color: #7fe3ab; background: rgba(31,122,77,.22); }
+  .banner svg { flex: none; }
+
+  .hex {
+    font-size: 11.5px; line-height: 1.55; color: var(--screen-faint);
+    word-break: break-all; overflow-y: auto; max-height: 168px; flex: 1;
+  }
+  .hex .sel { color: #ffb4ae; }
+  .hex-note { margin-top: 10px; font-size: 11px; color: #5d6884; }
+
+  .intent {
+    font-size: 14px; font-weight: 600; color: var(--screen-ink);
+    margin-bottom: 12px; letter-spacing: .01em;
+  }
+  .rows { display: flex; flex-direction: column; gap: 9px; flex: 1; }
+  .row { display: flex; flex-direction: column; gap: 1px; }
+  .row .k { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--screen-faint); }
+  .row .v { font-size: 13px; color: var(--screen-ink); word-break: break-all; }
+  .row.pay .v { color: #f2c877; font-weight: 600; }
+
+  .keys {
+    display: flex; gap: 8px; margin-top: 13px; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,.07);
+  }
+  .key {
+    flex: 1; text-align: center; font-family: var(--mono); font-size: 11.5px;
+    padding: 7px; border-radius: 6px; color: var(--screen-faint);
+    border: 1px solid rgba(255,255,255,.09);
+  }
+  .key.sign { color: #0c0f16; background: #e9edf4; border-color: #e9edf4; font-weight: 600; }
+  .key.reject { color: #ffb4ae; }
+
+  .foot {
+    margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 26px 40px; align-items: baseline;
+  }
+  .stat .n { font-size: 22px; font-weight: 680; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .stat .n.accent { color: var(--accent); }
+  .stat .l { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; max-width: 26ch; }
+  .caption {
+    margin-top: 26px; font-size: 12px; color: var(--ink-faint); max-width: 70ch;
+  }
+  .caption code { font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
+</style>
+
+<div class="wrap">
+  <div class="inner">
+    <p class="eyebrow">Clear Signing · ERC-7730</p>
+    <h1>The same transaction. <span class="q">One is readable.</span></h1>
+    <p class="lede">
+      When a wallet can't decode a contract, it shows raw hex and a blind-signing
+      warning — and users approve anyway. That gap is how phishing drains wallets.
+      Here is a real ENS registration, signed on a hardware wallet, with and
+      without a Clear Signing descriptor.
+    </p>
+
+    <div class="compare">
+      <!-- BLIND -->
+      <div>
+        <div class="col-head">
+          <span class="dot bad"></span> Today, without a descriptor
+          <span class="tag bad">blind</span>
+        </div>
+        <div class="device">
+          <div class="screen">
+            <div class="banner bad">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+              Blind signing — data not clear
+            </div>
+            <div class="hex" aria-label="raw transaction calldata">
+              <span class="sel">0x74694a2b</span>0000000000000000000000000000000000000000000000000000000000000100000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000000000001e13380000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000231b0ee14048e9dccd1d247744d114a4eb5e8e630000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000000100…
+            </div>
+            <div class="hex-note">357 bytes of calldata. What are you approving?</div>
+            <div class="keys">
+              <div class="key reject">✕ Reject</div>
+              <div class="key sign">Sign ✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLEAR -->
+      <div>
+        <div class="col-head">
+          <span class="dot good"></span> With the Lucent descriptor
+          <span class="tag good">clear</span>
+        </div>
+        <div class="device">
+          <div class="screen">
+            <div class="banner good">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Clear signed — verified on screen
+            </div>
+            <div class="intent">Register .eth name</div>
+            <div class="rows">
+              <div class="row"><span class="k">Name (.eth)</span><span class="v">yourname</span></div>
+              <div class="row pay"><span class="k">Amount paid</span><span class="v">0.005 ETH</span></div>
+              <div class="row"><span class="k">Registration period</span><span class="v">1 year</span></div>
+              <div class="row"><span class="k">Owner</span><span class="v">0xd8dA…96045</span></div>
+              <div class="row"><span class="k">Set as primary name</span><span class="v">true</span></div>
+            </div>
+            <div class="keys">
+              <div class="key reject">✕ Reject</div>
+              <div class="key sign">Sign ✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="stat">
+        <div class="n accent">0</div>
+        <div class="l">ENS descriptors in the registry today — a genuine gap</div>
+      </div>
+      <div class="stat">
+        <div class="n">7 / 7</div>
+        <div class="l">signable functions covered, lint-clean against the on-chain ABI</div>
+      </div>
+      <div class="stat">
+        <div class="n">6</div>
+        <div class="l">real historical transactions as test vectors</div>
+      </div>
+    </div>
+
+    <p class="caption">
+      Screens are faithful representations of an ERC-7730 render, not a Ledger product screenshot.
+      Calldata and fields are from a real <code>register(...)</code> call on the ENS ETHRegistrarController
+      (<code>0x2535…303b</code>). Descriptor and tests validated with the official <code>erc7730</code> tooling.
+    </p>
+  </div>
+</div>

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../specs/erc7730-v2.schema.json",
+  "context": {
+    "$id": "ens-bulk-renewal",
+    "contract": {
+      "deployments": [
+        {
+          "chainId": 1,
+          "address": "0xfF252725f6122A92551A5FA9a6b6bf10eb0Be035"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "owner": "ENS",
+    "info": {
+      "legalName": "True Names Limited",
+      "url": "https://ens.domains"
+    },
+    "contractName": "BulkRenewal"
+  },
+  "display": {
+    "formats": {
+      "renewAll(string[],uint256)": {
+        "intent": "Renew .eth names",
+        "fields": [
+          {
+            "label": "Names (.eth)",
+            "format": "raw",
+            "path": "#.names.[]",
+            "visible": "always"
+          },
+          {
+            "label": "Amount paid",
+            "format": "amount",
+            "path": "@.value",
+            "visible": "always"
+          },
+          {
+            "label": "Renewal period",
+            "format": "duration",
+            "path": "#.duration",
+            "visible": "always"
+          }
+        ]
+      }
+    }
+  }
+}
