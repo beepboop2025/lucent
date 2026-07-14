@@ -22,8 +22,11 @@ import shutil
 import sys
 from pathlib import Path
 
+import audit  # quality gate
+
 ROOT = Path(__file__).resolve().parent.parent
 REL_SCHEMA = "../../specs/erc7730-v2.schema.json"
+MIN_GRADE = ("A", "B")  # refuse to package anything weaker
 
 
 def main() -> int:
@@ -32,6 +35,16 @@ def main() -> int:
         return 2
     entity, desc_path = sys.argv[1], Path(sys.argv[2])
     desc = json.loads(desc_path.read_text())
+
+    # Quality gate: don't package a descriptor that isn't trustworthy.
+    r = audit.audit(desc)
+    print(f"security audit: Grade {r['grade']} ({r['score']}/100)")
+    if r["grade"] not in MIN_GRADE and "--force" not in sys.argv:
+        print(f"  REFUSED: grade below {MIN_GRADE[-1]}. Fix findings or pass --force.")
+        for f in r["findings"]:
+            if f["severity"] in ("CRITICAL", "HIGH"):
+                print(f"    [{f['severity']}] {f['function']}: {f['issue']}")
+        return 1
 
     desc["$schema"] = REL_SCHEMA
     # Registry convention: reference the ABI via deployments, don't inline it.

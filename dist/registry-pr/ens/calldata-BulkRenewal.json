@@ -42,7 +42,8 @@
             "path": "#.duration",
             "visible": "always"
           }
-        ]
+        ],
+        "interpolatedIntent": "Renew .eth for {duration}"
       }
     }
   }

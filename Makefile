@@ -28,6 +28,10 @@ resolve-proxy:
 lint:
 	$(ERC) lint --skip-abi-validation $(DESC)
 
+## audit: security/quality grade beyond lint (the verification moat)
+audit:
+	$(PY) scripts/audit.py $(DESC)
+
 ## resolve: expand a descriptor to resolved form (proves all paths resolve)
 resolve:
 	COLUMNS=100000 $(ERC) resolve $(DESC) >/dev/null && echo "resolved OK: $(DESC)"
@@ -40,8 +44,8 @@ preview:
 submission:
 	$(PY) scripts/to_submission.py $(ENTITY) $(DESC)
 
-## all: lint + resolve + preview
-all: lint resolve preview
+## all: lint + audit + resolve + preview
+all: lint audit resolve preview
 
 ## clean: remove local scratch artifacts
 clean:

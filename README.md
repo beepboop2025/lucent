@@ -40,12 +40,29 @@ hardening + test layer that a generator cannot produce:
 | 2. Generate | `erc7730 generate` | A minimal, valid draft to build on |
 | 3. **Harden** | manual, expert | Intents, amounts, formats, visibility, security review — *the value-add* |
 | 4. Lint | `erc7730 lint` | Schema-valid, within device limits, ABI-consistent |
+| 4b. **Audit** | `scripts/audit.py` | Security/quality **grade** — the moat as a tool (see below) |
 | 5. **Prove** | `scripts/preview.py` + `fetch_tx.py` | Renders the signer screen + emits **real** registry test vectors |
-| 6. Package | `scripts/to_submission.py` | Registry-PR form under `dist/` (relative schema, ABI referenced) |
+| 6. Package | `scripts/to_submission.py` | Registry-PR form under `dist/` — **gated: refuses to package below Grade B** |
 | 7. Submit | PR to registry | Auto-imported into the Ledger Cryptoassets list once merged |
 
-Stages 3 and 5 are where quality lives, and where a competitor running only the
-LLM generator falls short.
+Stages 3, 4b and 5 are where quality lives, and where a competitor running only
+the LLM generator falls short.
+
+## The audit — the moat, as a tool
+
+`erc7730 lint` answers "is this well-formed?". `scripts/audit.py` answers "would
+this screen actually protect a user, or lull them?" — the whole product. It
+grades a descriptor on the failures a generator makes:
+
+- **CRITICAL** — a `payable` function that never shows `@.value` (funds leave invisibly), or `tokenAmount` with unknown units.
+- **HIGH** — no `intent`, a function that blind-signs despite a descriptor, an address shown as raw hex.
+- **MEDIUM/LOW** — device-limit truncation, missing interpolated summaries.
+
+The same raw LLM-generated ENS draft a competitor would submit scores **Grade F
+(0/100)**; the Lucent hardened descriptors score **Grade A (100/100)**. The
+grade is both an internal gate and a sellable artifact ("audited, Grade A").
+`scripts/to_submission.py` runs it and **refuses to package anything below Grade
+B** (override with `--force`).
 
 ### Discovery output (seed run)
 
