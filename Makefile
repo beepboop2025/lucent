@@ -2,68 +2,70 @@ VENV := .venv
 PY := $(VENV)/bin/python
 ERC := $(VENV)/bin/erc7730
 
-# Target descriptor (override on the command line, e.g. `make lint DESC=...`)
+# Descriptor most targets act on; override on the command line.
 DESC ?= registry/ens/calldata-ETHRegistrarController.json
 
-.PHONY: setup discover fetch lint preview resolve submission all clean
+.PHONY: setup discover fetch resolve-proxy lint audit semverify preview \
+        submission attest watch watch-init all clean
 
-## discover: classify seed candidates into leads / proxy / covered
-discover:
-	$(PY) scripts/discover.py $(SEEDS)
-## setup: create venv and install tooling
+## setup: create the venv and install requirements
 setup:
 	python3.12 -m venv $(VENV)
 	$(PY) -m pip install -q --upgrade pip
-	$(PY) -m pip install -q erc7730 eth-account rfc8785 pqcrypto rfc8785
+	$(PY) -m pip install -q -r requirements.txt
 
-## fetch: pull a verified ABI from Sourcify.  make fetch CHAIN=1 ADDR=0x...
+## discover: classify candidate contracts. make discover SEEDS=seeds/candidates.json
+discover:
+	$(PY) scripts/discover.py $(SEEDS)
+
+## fetch: cache a verified ABI. make fetch CHAIN=1 ADDR=0x...
 fetch:
 	$(PY) scripts/fetch_abi.py $(CHAIN) $(ADDR)
 
-## resolve-proxy: cache a proxy's implementation ABI.  make resolve-proxy CHAIN=1 ADDR=0x...
+## resolve-proxy: cache a proxy's implementation ABI. make resolve-proxy CHAIN=1 ADDR=0x...
 resolve-proxy:
 	$(PY) scripts/resolve_proxy.py $(CHAIN) $(ADDR)
 
-## lint: validate a descriptor (add ETHERSCAN key for full ABI comparison)
+## lint: validate a descriptor (add ETHERSCAN_API_KEY for full ABI comparison)
 lint:
 	$(ERC) lint --skip-abi-validation $(DESC)
 
-## audit: security/quality grade beyond lint (the verification moat)
+## audit: grade the descriptor on screen trustworthiness
 audit:
 	$(PY) scripts/audit.py $(DESC)
 
-## semverify: prove the screen matches actual on-chain movements (needs ETHERSCAN key)
+## semverify: check the screen against on-chain movements (needs ETHERSCAN_API_KEY)
 semverify:
 	$(PY) scripts/semverify.py $(DESC)
 
-## attest: sign an evidence-backed ERC-8176 attestation over the descriptor
-attest:
-	$(PY) scripts/attest.py $(DESC)
-
-## watch: check watched contracts for drift vs their descriptors (cron-able)
-watch:
-	$(PY) scripts/watch.py
-
-## watch-init: record baselines for all registry descriptors
-watch-init:
-	$(PY) scripts/watch.py --init
-
-## resolve: expand a descriptor to resolved form (proves all paths resolve)
+## resolve: expand a descriptor to resolved form
 resolve:
-	COLUMNS=100000 $(ERC) resolve $(DESC) >/dev/null && echo "resolved OK: $(DESC)"
+	COLUMNS=100000 $(ERC) resolve $(DESC) >/dev/null && echo "resolved $(DESC)"
 
-## preview: render on-device screens + emit registry test vectors
+## preview: render on-device screens and write sample vectors
 preview:
 	$(PY) scripts/preview.py
 
-## submission: emit registry-PR form under dist/  (make submission ENTITY=ens)
+## submission: emit the registry-PR form. make submission ENTITY=ens
 submission:
 	$(PY) scripts/to_submission.py $(ENTITY) $(DESC)
 
-## all: lint + audit + resolve + preview
+## attest: produce an ERC-8176 attestation over the descriptor hash
+attest:
+	$(PY) scripts/attest.py $(DESC)
+
+## watch: check merged descriptors for drift
+watch:
+	$(PY) scripts/watch.py
+
+## watch-init: record drift baselines for all registry descriptors
+watch-init:
+	$(PY) scripts/watch.py --init
+
+## all: lint, audit, resolve, preview
 all: lint audit resolve preview
 
-## clean: remove local scratch artifacts
+## clean: remove scratch artifacts
 clean:
-	rm -f registry/**/_draft.json registry/**/_resolved.json
+	rm -f registry/**/_*.json
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

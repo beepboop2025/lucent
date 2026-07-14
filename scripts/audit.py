@@ -53,7 +53,7 @@ def audit(desc: dict) -> dict:
 
         visible = [f for f in fields if f.get("visible") != "never"]
         if inputs and not visible:
-            flag("HIGH", sig, "no visible field — blind-signs despite a descriptor")
+            flag("HIGH", sig, "no visible field, blind-signs despite a descriptor")
         if value_field is not None and value_field.get("visible") != "always":
             flag("LOW", sig, "payable amount not pinned visible:always")
 

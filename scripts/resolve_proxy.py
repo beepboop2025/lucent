@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Resolve a proxy's implementation and cache the real ABI under the proxy address.
 
-Sourcify returns only the proxy shell (`upgradeTo`, `admin`, …) for a proxy
+Sourcify returns only the proxy shell (`upgradeTo`, `admin`, ...) for a proxy
 contract; the functions users sign live at the implementation. This finds the
 implementation (Etherscan `Implementation` field, else the EIP-1967 storage
 slot), fetches its ABI, and caches it under the proxy address so the rest of the
@@ -72,14 +72,14 @@ def main() -> int:
         print(f"implementation {impl} not verified on Sourcify or Etherscan")
         return 1
     if src == "etherscan":
-        print("  note: verified on Etherscan, not Sourcify — confirm before a registry PR")
+        print("  note: verified on Etherscan, not Sourcify; confirm before a registry PR")
 
     common.ABI_CACHE.mkdir(exist_ok=True)
     out = common.ABI_CACHE / f"{args.chain_id}-{args.proxy_address.lower()}.abi.json"
     out.write_text(json.dumps(abi, indent=2))
     names = [f["name"] for f in common.signable_functions(abi)]
     print(f"  cached {common.rel(out)}")
-    print(f"  signable ({len(names)}): {', '.join(names[:12])}{' …' if len(names) > 12 else ''}")
+    print(f"  signable ({len(names)}): {', '.join(names[:12])}{' ...' if len(names) > 12 else ''}")
     return 0
 
 

@@ -1,195 +1,131 @@
-# Lucent — Clear Signing, done right
+# Lucent
 
-Lucent turns the transactions users **blind-sign** today into plain-language
-screens they can actually read, by authoring high-quality
-[ERC-7730](https://eips.ethereum.org/EIPS/eip-7730) *Clear Signing* descriptors
-and submitting them to the public
+Tooling to author, verify, and attest [ERC-7730](https://eips.ethereum.org/EIPS/eip-7730)
+Clear Signing descriptors for the public
 [registry](https://github.com/ethereum/clear-signing-erc7730-registry) that
-every compatible wallet (Ledger and partners) reads from.
+compatible wallets read from.
 
-> Working name. The first artifact is a hardened descriptor for the **ENS
-> ETHRegistrarController** — one of the most blind-signed contracts on
-> Ethereum, with **zero** existing registry coverage.
+A descriptor is a JSON file that tells a wallet how to render a contract call in
+plain language, so users see what they are signing instead of raw hex. Lucent
+covers the full path: find contracts that lack a descriptor, write and harden
+one, check it beyond schema validity, prove it against real transactions, and
+produce an ERC-8176 attestation.
 
-## Why this exists
+## Install
 
-A wallet that can't decode a contract shows the user raw hex and a "blind
-signing" warning. Users approve anyway, and that gap is the mechanic behind a
-large share of phishing losses. ERC-7730 fixes it with a JSON descriptor that
-tells wallets how to render each function in human terms.
+```bash
+make setup     # creates .venv and installs requirements (Python 3.12+)
+```
 
-Ledger even ships an LLM *generator* for these files. So the market is about to
-flood with **shallow, auto-generated descriptors** — and a *wrong* descriptor
-is worse than hex, because it shows the user a confident summary that is false.
+Most stages that read on-chain data need a free Etherscan API key:
 
-**Lucent's product is not generation. It is verification.** The moat is the
-hardening + test layer that a generator cannot produce:
+```bash
+export ETHERSCAN_API_KEY=...
+```
 
-- correct **intents** and interpolated summaries, within device screen limits;
-- the **native ETH amount** shown on payable calls (generators routinely miss this);
-- honest handling of opaque fields (`visible: never`, never silently dropped);
-- refusal to fake a unit we can't verify (dynamic-token amounts shown as raw);
-- **test vectors** proving the on-device screen for real transactions.
+## Pipeline
 
-## The pipeline
+| Stage | Script | Purpose |
+|-------|--------|---------|
+| Discover | `discover.py` | Classify candidates: verified, signable, and uncovered |
+| Fetch ABI | `fetch_abi.py` | Verified ABI from Sourcify (a registry requirement) |
+| Resolve proxy | `resolve_proxy.py` | Cache an implementation ABI under a proxy address |
+| Generate | `erc7730 generate` | Bootstrap a draft descriptor |
+| Lint | `erc7730 lint` | Schema, selectors, device limits, ABI consistency |
+| Audit | `audit.py` | Grade the descriptor on screen trustworthiness |
+| Verify | `semverify.py` | Check the screen against real on-chain movements |
+| Prove | `preview.py`, `fetch_tx.py` | Render the screen and build real test vectors |
+| Package | `to_submission.py` | Registry-form output under `dist/`, gated on audit grade |
+| Attest | `attest.py` | ERC-8176 attestation over the descriptor hash |
+| Watch | `watch.py` | Monitor merged descriptors for drift |
 
-| Stage | Tool | What it guarantees |
-|-------|------|--------------------|
-| 0. Discover | `scripts/discover.py` | Finds verified, signable, **uncovered** contracts — the leads |
-| 1. Fetch | `scripts/fetch_abi.py` | Verified ABI from **Sourcify** (also the registry's verification requirement) |
-| 2. Generate | `erc7730 generate` | A minimal, valid draft to build on |
-| 3. **Harden** | manual, expert | Intents, amounts, formats, visibility, security review — *the value-add* |
-| 4. Lint | `erc7730 lint` | Schema-valid, within device limits, ABI-consistent |
-| 4b. **Audit** | `scripts/audit.py` | Security/quality **grade** — the moat as a tool (see below) |
-| 4c. **Semantic verify** | `scripts/semverify.py` | Proves the screen matches what the tx **actually did on-chain** (see below) |
-| 5. **Prove** | `scripts/preview.py` + `fetch_tx.py` | Renders the signer screen + emits **real** registry test vectors |
-| 6. Package | `scripts/to_submission.py` | Registry-PR form under `dist/` — **gated: refuses to package below Grade B** |
-| 7. Submit | PR to registry | Auto-imported into the Ledger Cryptoassets list once merged |
-| 8. **Attest** | `scripts/attest.py` | Signed **ERC-8176** (EAS) attestation over the JCS-canonical hash — gated on audit grade + semverify pass |
-| 9. **Watch** | `scripts/watch.py` | Cron drift monitor: proxy impl changes, new uncovered functions, stale entries → re-verify / re-attest / revoke |
+A `common.py` module holds the shared Sourcify and Etherscan clients and ABI
+utilities.
 
-Stages 8 and 9 are the business model: 8 is what wallets consume when they
-weight descriptor trust (attestations, not descriptors, carry the pricing
-power), and 9 is the recurring service — a verified descriptor silently rots
-the moment its proxy upgrades, and nothing else in the clear-signing stack
-re-checks.
+## Audit
 
-Stages 3, 4b and 5 are where quality lives, and where a competitor running only
-the LLM generator falls short.
+`erc7730 lint` checks that a descriptor is well-formed. `audit.py` checks whether
+the on-device screen would mislead a user, which lint does not:
 
-## The audit — the moat, as a tool
+- CRITICAL: a payable function that never shows `@.value`, or a `tokenAmount`
+  with no known token.
+- HIGH: a signable function with no intent or no visible field, or an address
+  shown as raw hex.
+- MEDIUM/LOW: labels or intents past the device character limits, missing
+  interpolated summaries.
 
-`erc7730 lint` answers "is this well-formed?". `scripts/audit.py` answers "would
-this screen actually protect a user, or lull them?" — the whole product. It
-grades a descriptor on the failures a generator makes:
+It reports a letter grade. `to_submission.py` refuses to package below grade B.
+A raw generated draft of the ENS controller scores F; the hardened descriptors
+score A.
 
-- **CRITICAL** — a `payable` function that never shows `@.value` (funds leave invisibly), or `tokenAmount` with unknown units.
-- **HIGH** — no `intent`, a function that blind-signs despite a descriptor, an address shown as raw hex.
-- **MEDIUM/LOW** — device-limit truncation, missing interpolated summaries.
+## Semantic verification
 
-The same raw LLM-generated ENS draft a competitor would submit scores **Grade F
-(0/100)**; the Lucent hardened descriptors score **Grade A (100/100)**. The
-grade is both an internal gate and a sellable artifact ("audited, Grade A").
-`scripts/to_submission.py` runs it and **refuses to package anything below Grade
-B** (override with `--force`).
+Lint proves a descriptor is well-formed, not that its summary is honest. A
+descriptor can pass every schema check and still render a benign screen for a
+call that sends assets elsewhere.
 
-## Semantic verification — the up-a-rung moat
+For each test vector, `semverify.py` fetches the mined receipt (the record of
+what actually moved), extracts the asset movements and approvals (ETH, ERC-20,
+ERC-1155, ApprovalForAll), and checks the screen against them: every real
+recipient and operator is shown, ETH spent is shown, and the field labelled as
+the recipient matches the address that received the asset.
 
-The EF registry CI now gives away schema / selector / Sourcify / ABI checks, so
-"ABI-clean descriptor" is becoming table stakes. Those prove a descriptor is
-*well-formed*; they can't prove the human summary is *honest*. A descriptor can
-pass every structural check and still render a benign screen for a call that
-sends assets elsewhere.
-
-`scripts/semverify.py` closes that gap. For each real vector it pulls the mined
-**receipt** (the ground truth of what moved), extracts the actual asset
-movements and approvals (ETH / ERC-20 / ERC-1155 / ApprovalForAll), and asserts
-the screen is faithful — the real recipient/operator is shown, ETH spent is
-shown, and the field *labelled* as the recipient equals the address that
-actually received the asset.
-
-A worked spoof — `safeTransferFrom` with the **To/From labels swapped**:
+Worked example, a `safeTransferFrom` descriptor with the To and From labels
+swapped:
 
 | Check | Result |
 |-------|--------|
-| `erc7730 lint` (= EF CI) | **PASS** — schema-valid, both fields shown |
-| `audit.py` (structural) | **Grade A** — structurally perfect |
-| `semverify.py` (semantic) | **DIVERGENCE** — "screen labels the sender as recipient; assets went elsewhere" |
+| `erc7730 lint` | pass (schema-valid, both fields shown) |
+| `audit.py` | grade A (structurally correct) |
+| `semverify.py` | divergence (labels the sender as recipient) |
 
-Only simulation-backed semantic verification catches it. "Simulation-verified:
-the screen matches the chain" is a claim no generator or linter can make, and —
-critically — it is the only trust signal an autonomous **agent** can consume,
-since an agent has no human to read a warning popup.
+The receipt is exact for mined transactions. Hypothetical or unmined calls would
+need a fork replay (Foundry `cast run`), which is not wired up. The recipient
+check is heuristic on field labels; it catches recipient hiding and label
+spoofing, not every possible mismatch.
 
-**Scope, honestly:** for mined transactions the receipt *is* the realized
-execution, so this is exact. For *hypothetical/unmined* calls the same
-assertions run against a fork replay (Foundry `cast run`) — not yet wired, since
-we verify real vectors. The role check is heuristic on field labels; it catches
-recipient hiding and recipient/label spoofing, not every possible semantic lie.
+## Post-quantum co-signing
 
-## Quantum-safe attestations (`attest.py --pq`)
+A descriptor hash is `keccak256`, which is quantum-safe. The ECDSA signature over
+it is not, and attestations are long-lived. `attest.py --pq` adds a post-quantum
+signature over the same hash so the attestation stays verifiable if the
+signature scheme is broken. The hash is unchanged; only the signature scheme is
+added.
 
-An attestation's `descriptorHash` is `keccak256` — already quantum-safe (Grover
-only halves it). Its ECDSA signature is **not** — Shor forges it once a CRQC
-exists. And attestations are long-lived trust artifacts: *harvest now, forge
-later*. So `--pq` adds a **post-quantum signature over the same hash**, keeping
-Lucent's attestations verifiable after the migration. The commitment is
-unchanged; only the signature scheme is swapped — crypto-agility by design.
+| Scheme | Standard | Signature size |
+|--------|----------|----------------|
+| `ml_dsa_65` (default) | FIPS 204 | ~3.3 KB |
+| `ml_dsa_44` / `ml_dsa_87` | FIPS 204 | ~2.4 / ~4.6 KB |
+| `falcon_512` | FIPS 206 draft | ~0.65 KB (float and side-channel risk) |
+| `sphincs_sha2_128s_simple` | FIPS 205 | ~7.9 KB (hash-based) |
 
-| Scheme | Standard | Sig size | Note |
-|--------|----------|----------|------|
-| `ml_dsa_65` (default) | FIPS 204 (Dilithium3) | ~3.3 KB | balanced; the sensible default |
-| `ml_dsa_44` / `ml_dsa_87` | FIPS 204 | ~2.4 / ~4.6 KB | lower / higher margin |
-| `falcon_512` | FIPS 206 draft | **~0.65 KB** | compact, but float/side-channel risk (Ledger Donjon-flagged) |
-| `sphincs_sha2_128s_simple` | SLH-DSA (FIPS 205) | ~7.9 KB | hash-based, most conservative |
-
-Verified: the PQ signature binds the exact `descriptorHash` and rejects a
-tampered one. Keys live in a gitignored `.attester-keys/` (or `LUCENT_PQ_*`
-env); a real attester generates them offline.
-
-**Honestly:** no cryptographically-relevant quantum computer exists in 2026, so
-this is *positioning*, not urgency — but the cost is one flag, and there is no
-standard yet for PQ attestations (first-mover, with divergence risk). On-device,
-multi-KB signatures are a real constraint for constrained secure elements.
-
-### Discovery output (seed run)
-
-```
-🎯 GAP          ENS ETHRegistrarController   7 signable fns, no registry coverage
-🎯 GAP          Uniswap UniversalRouter      4 signable fns, no registry coverage
-🎯 GAP          Seaport 1.6                  12 signable fns, no registry coverage
-🧅 proxy-shell  Aave v3 Pool                 proxy — resolve implementation
-✅ covered      Uniswap V3 SwapRouter02      already in registry
-```
-
-Point `discover.py` at the scraper infra's output (high-usage uncovered
-contracts) to industrialise the top of the funnel.
-
-Proxy leads (🧅) need one extra step — `scripts/resolve_proxy.py` finds the
-implementation (EIP-1967 slot or Etherscan `Implementation`), caches its ABI
-under the *proxy* address, and the rest of the pipeline proceeds normally.
-Verified on Aave v3 Pool (`supply`/`borrow`/`repay`/`withdraw`) and EigenLayer
-StrategyManager (`depositIntoStrategy`).
-
-## Quick start
-
-```bash
-make setup                                   # venv + tooling (Python 3.12+)
-make fetch CHAIN=1 ADDR=0x253553366Da8546fC250F225fe3d25d0C782303b
-make all                                     # lint + resolve + preview
-```
-
-`make preview` prints the on-device screens and writes
-`registry/ens/tests/calldata-ETHRegistrarController.tests.json`.
+The signature binds the exact descriptor hash. Keys are read from `LUCENT_PQ_*`
+env vars or a gitignored `.attester-keys/` directory, written owner-only. No
+cryptographically-relevant quantum computer exists yet and there is no standard
+for post-quantum attestations, so this is forward positioning, not a current
+requirement.
 
 ## Current state
 
-Two ENS descriptors, both **full lint clean against the on-chain ABI**, both
-packaged for PR under `dist/registry-pr/ens/`:
+Three ENS descriptors, each grade A and lint clean against the on-chain ABI,
+packaged under `dist/registry-pr/ens/`:
 
-| Descriptor | Functions | Real test vectors |
-|------------|-----------|-------------------|
-| ETHRegistrarController (`0x2535…303b`) | 7 | 8 (`register`/`renew`/`commit`) |
-| NameWrapper (`0xD441…6401`) | 26 | 6 (`wrap`/`unwrap`/`setApprovalForAll`/…) |
+| Descriptor | Functions | Test vectors |
+|------------|-----------|--------------|
+| ETHRegistrarController (`0x2535…303b`) | 7 | 8 |
+| NameWrapper (`0xD441…6401`) | 26 | 6 |
+| BulkRenewal | 1 | 3 |
 
-Both targets **confirmed active** (most recent tx today). One ENS relationship
-covers both — plus BulkRenewal, a known one-function gap.
+Test vectors are real historical transactions, built with
+`fetch_tx.py <chain> <address> <descriptor>`.
 
-Real test vectors come from `scripts/fetch_tx.py <chain> <address> <descriptor>`
-(derives the covered selectors from the descriptor itself, so it works for any
-target).
+A registry PR should be submitted by or on behalf of the contract's owner. The
+remaining step for the ENS descriptors is that authorization, not code.
 
-### Before an actual registry PR
-- Switch `$schema` to the registry-relative path
-  `../../specs/erc7730-v2.schema.json` and drop the inline ABI (registry
-  convention references it via `deployments`; kept inline here for offline work).
-- A registry PR must be submitted by / on behalf of the entity (ENS) — the
-  remaining step is a relationship/authorization one, not a technical one.
+## Attester registration
 
-## Business model
-
-Protocols pay for descriptors because blind-signing warnings cost them
-conversions and support tickets. Lucent sells the *hardened, tested,
-security-reviewed* descriptor and its maintenance — the parts an LLM generator
-can't be trusted to produce. The discovery→harden→test→submit loop is
-repeatable across the long tail of uncovered contracts.
+`attest.py --profile` writes an auditor profile
+(`auditors/eip155-1-<address>/profile.json`) for a registry PR. Signing an EAS
+offchain attestation needs the ERC-8176 schema UID (published on clearsigning.org)
+and an attester key. Without them, `attest.py` writes an unsigned evidence
+bundle so the pipeline can run end to end first.

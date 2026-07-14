@@ -10,7 +10,7 @@ schema UID or signing key it writes an unsigned evidence bundle instead.
 --pq adds a post-quantum co-signature over the same hash: the hash is already
 quantum-safe but the ECDSA signature is not, and attestations are long-lived.
 
-    attest.py <descriptor.json> [--schema 0x…] [--require-sim] [--pq [--pq-scheme S]]
+    attest.py <descriptor.json> [--schema 0x...] [--require-sim] [--pq [--pq-scheme S]]
     attest.py <descriptor.json> --profile   (emit the auditor profile)
 
 Env: ATTESTER_PRIVATE_KEY, ERC8176_SCHEMA_UID, ETHERSCAN_API_KEY, LUCENT_PQ_*

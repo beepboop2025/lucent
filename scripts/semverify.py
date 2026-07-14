@@ -100,15 +100,15 @@ def verify_one(desc: dict, contract: str, tx: dict, receipt: dict):
     for m in moves:
         if m["kind"] in ("erc20", "erc1155") and m["to"] in recipients \
                 and m["to"] not in shown and m["to"] != contract:
-            findings.append(("HIGH", f"asset sent to {m['to'][:10]}… not shown on screen"))
+            findings.append(("HIGH", f"asset sent to {m['to'][:10]}... not shown on screen"))
         if m["kind"] == "approval" and m["approved"] and m["operator"] not in shown:
-            findings.append(("CRITICAL", f"approves operator {m['operator'][:10]}… not shown"))
+            findings.append(("CRITICAL", f"approves operator {m['operator'][:10]}... not shown"))
     if recipients:
         for label, addr in labelled:
             if any(label == r or label.startswith(r) for r in RECIPIENT_LABELS) \
                     and addr not in recipients and addr != contract:
                 findings.append(("CRITICAL",
-                    f"screen labels {addr[:10]}… as recipient, but assets went elsewhere"))
+                    f"screen labels {addr[:10]}... as recipient, but assets went elsewhere"))
     return sig, moves, findings
 
 

@@ -59,7 +59,7 @@ def diff(baseline: dict, live: dict, covered: set[str]) -> list[dict]:
         events.append({"kind": kind, "severity": POLICY[kind], "detail": detail})
 
     if baseline.get("impl") and live.get("impl") and baseline["impl"] != live["impl"]:
-        ev("IMPL_CHANGED", f"{baseline['impl'][:10]}… -> {live['impl'][:10]}…")
+        ev("IMPL_CHANGED", f"{baseline['impl'][:10]}... -> {live['impl'][:10]}...")
     live_sigs = set(live["signable"])
     for sig in sorted(live_sigs - covered):
         ev("NEW_UNCOVERED", f"live signable `{sig}` has no descriptor entry")

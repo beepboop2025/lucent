@@ -33,7 +33,7 @@ def recent_txs(chain_id: int, address: str, limit: int = 100) -> list[dict]:
                             address=address, startblock=0, endblock=99999999,
                             page=1, offset=limit, sort="desc")
     if resp.get("status") != "1":
-        print(f"  txlist: {resp.get('message')} — {resp.get('result')}")
+        print(f"  txlist: {resp.get('message')}: {resp.get('result')}")
         return []
     return resp["result"]
 
@@ -82,7 +82,7 @@ def main() -> int:
         if not raw:
             continue
         counts[fn] = counts.get(fn, 0) + 1
-        vectors.append({"description": f"{fn} — real tx {tx['hash'][:10]}",
+        vectors.append({"description": f"{fn} real tx {tx['hash'][:10]}",
                         "rawTx": raw, "txHash": tx["hash"], "expectedTexts": expected})
         print(f"  + {fn:9} {tx['hash']}")
         if len(vectors) >= MAX_TOTAL:

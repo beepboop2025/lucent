@@ -26,7 +26,7 @@ import common
 DEFAULT_DESC = common.ROOT / "registry/ens/calldata-ETHRegistrarController.json"
 SAMPLES_OUT = common.ROOT / "registry/ens/tests/_samples.tests.json"
 
-# Hardhat account #0 — signs synthetic sample vectors only, never holds funds.
+# Hardhat account #0. Signs synthetic sample vectors only; never holds funds.
 TEST_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 VITALIK = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
 ENS_RESOLVER = "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63"
