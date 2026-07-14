@@ -111,12 +111,20 @@ def pq_keypair(scheme: str):
     from importlib import import_module
     mod = import_module(f"pqcrypto.sign.{scheme}")
     pk, sk = mod.generate_keypair()
-    keyfile.parent.mkdir(parents=True, exist_ok=True)
-    keyfile.write_text(json.dumps({
+    # Secret signing key — write owner-only regardless of umask.
+    keyfile.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        os.chmod(keyfile.parent, 0o700)
+    except OSError:
+        pass
+    payload = json.dumps({
         "scheme": scheme, "publicKey": pk.hex(), "secretKey": sk.hex(),
         "_warning": "GENERATED demo key. A real attester generates this OFFLINE "
                     "and keeps secretKey out of any repo. This dir is gitignored.",
-    }, indent=2) + "\n")
+    }, indent=2) + "\n"
+    fd = os.open(str(keyfile), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(payload)
     return pk, sk, "generated"
 
 
