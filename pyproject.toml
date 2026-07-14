@@ -1,0 +1,21 @@
+[project]
+name = "lucent"
+version = "0.1.0"
+description = "Author, verify, and attest ERC-7730 Clear Signing descriptors"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = [
+    "erc7730",
+    "eth-abi",
+    "eth-account",
+    "eth-utils",
+    "rfc8785",
+    "pqcrypto",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

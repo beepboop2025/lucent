@@ -1,51 +1,29 @@
 #!/usr/bin/env python3
-"""ERC-8176 attestation — sign an evidence-backed statement that a descriptor
-faithfully represents its contract.
+"""Produce an ERC-8176 attestation over a descriptor's canonical hash.
 
-This is the rung above verification: `audit.py` grades a descriptor and
-`semverify.py` proves its screens against mined receipts, but neither produces
-anything a *wallet* can consume. ERC-8176 defines that consumable: an EAS
-attestation over the descriptor's canonical hash, signed by a registered
-auditor. Wallets weight descriptors by whose attestations they carry — so the
-attestation, not the descriptor, is where pricing power lives.
+Gated on evidence: the descriptor must pass the audit (grade B or better) and,
+when an Etherscan key is present, semantic verification against its test
+vectors. It then computes descriptorHash = keccak256(RFC-8785 JCS(descriptor))
+and writes an EAS offchain attestation to registry/<project>/sigs/. Without a
+schema UID or signing key it writes an unsigned evidence bundle instead.
 
-What this tool does, in order:
-  1. Quality-gate: refuse to attest anything below audit grade B.
-  2. Evidence: run semverify (needs ETHERSCAN_API_KEY); record the outcome.
-     `--require-sim` makes a semverify pass mandatory — the differentiator vs
-     attesters who sign on eyeball review.
-  3. Canonicalize the descriptor per RFC 8785 (JCS) and keccak256 it. ERC-7730
-     JSON is strings/ints/bools only, so sorted-keys + minimal separators IS
-     the JCS form (floats, which JCS serializes specially, never occur).
-  4. Sign an EAS *offchain* attestation (EIP-712, version-2 struct with salt)
-     binding the hash under the ERC-8176 schema. Offchain = free, revocable
-     by publishing, and exactly what the registry's sigs/ convention expects.
-  5. Drop registry/<project>/sigs/<descriptor>.<attester>.json next to the
-     descriptor, ready for the registry PR.
+--pq adds a post-quantum co-signature over the same hash: the hash is already
+quantum-safe but the ECDSA signature is not, and attestations are long-lived.
 
-The ERC-8176 schema UID is NOT hardcoded: it lives on the EAS registry and is
-published via clearsigning.org. Pass it with --schema or ERC8176_SCHEMA_UID.
-Without it the tool still runs end-to-end and writes an UNSIGNED evidence
-bundle (--dry-run implied), so the pipeline can be exercised before the
-auditor profile PR is merged.
+    attest.py <descriptor.json> [--schema 0x…] [--require-sim] [--pq [--pq-scheme S]]
+    attest.py <descriptor.json> --profile   (emit the auditor profile)
 
-Env:  ATTESTER_PRIVATE_KEY  (never committed; throwaway ok for dry runs)
-      ERC8176_SCHEMA_UID    (or --schema 0x…)
-      ETHERSCAN_API_KEY     (for semverify evidence)
-Usage:
-    python scripts/attest.py <descriptor.json> [--schema 0x…] [--require-sim]
-    python scripts/attest.py <descriptor.json> --pq [--pq-scheme ml_dsa_65]  # + quantum-safe co-signature
-    python scripts/attest.py <descriptor.json> --profile   # emit auditor profile stub
+Env: ATTESTER_PRIVATE_KEY, ERC8176_SCHEMA_UID, ETHERSCAN_API_KEY, LUCENT_PQ_*
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import secrets
-import subprocess
-import sys
 import time
+from importlib import import_module
 from pathlib import Path
 
 import rfc8785
@@ -53,108 +31,72 @@ from eth_account import Account
 from eth_utils import keccak
 
 import audit
+import common
+import semverify
 
-ROOT = Path(__file__).resolve().parent.parent
-# EAS v1.2 on Ethereum mainnet — the deployment ERC-8176 rides on.
+# EAS v1.2 on Ethereum mainnet, the deployment ERC-8176 attestations ride on.
 EAS_MAINNET = "0xA1207F3BBa224E2c9c3c6D5aF63D0eb1582Ce587"
 ZERO32 = "0x" + "0" * 64
 MIN_GRADE = ("A", "B")
 
-
-def rel(p: Path) -> str:
-    try:
-        return str(p.relative_to(ROOT))
-    except ValueError:
-        return str(p)
-
-
-def canonical_bytes(obj) -> bytes:
-    """RFC 8785 (JCS) serialization — reference impl, verified byte-identical to
-    Cyfrin's official `clearsig descriptor-hash` on the ENS descriptors."""
-    return rfc8785.dumps(obj)
-
-
-def descriptor_hash(desc: dict) -> str:
-    return "0x" + keccak(canonical_bytes(desc)).hex()
-
-
-def flag_value(name: str, default=None):
-    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
-
-
-# ---- post-quantum co-signing (crypto-agility) ------------------------------
-# ECDSA (the EAS signature) falls to Shor once a CRQC exists; keccak256 (the
-# descriptorHash) does not (Grover only halves it). So we keep the hash and add
-# a quantum-safe signature over the SAME commitment. Attestations are long-lived
-# trust artifacts — "harvest now, forge later" — which is exactly the class
-# worth PQ-signing before a CRQC arrives, not after.
 PQ_SCHEMES = {
-    "ml_dsa_44": "FIPS 204 (Dilithium2) — smallest ML-DSA, ~2.4KB sig",
-    "ml_dsa_65": "FIPS 204 (Dilithium3) — balanced default, ~3.3KB sig",
-    "ml_dsa_87": "FIPS 204 (Dilithium5) — highest ML-DSA margin, ~4.6KB sig",
-    "falcon_512": "FIPS 206 draft — compact ~0.65KB sig, but float/side-channel risk (Donjon-flagged)",
-    "sphincs_sha2_128s_simple": "SLH-DSA (FIPS 205) — hash-based, most conservative, large ~7.9KB sig",
+    "ml_dsa_44": "FIPS 204 (Dilithium2), ~2.4KB sig",
+    "ml_dsa_65": "FIPS 204 (Dilithium3), ~3.3KB sig",
+    "ml_dsa_87": "FIPS 204 (Dilithium5), ~4.6KB sig",
+    "falcon_512": "FIPS 206 draft, ~0.65KB sig, float/side-channel risk",
+    "sphincs_sha2_128s_simple": "SLH-DSA (FIPS 205), hash-based, ~7.9KB sig",
 }
 PQ_DEFAULT = "ml_dsa_65"
 
 
+def descriptor_hash(desc: dict) -> str:
+    return "0x" + keccak(rfc8785.dumps(desc)).hex()
+
+
+def run_semverify(descriptor: Path) -> dict:
+    if not os.environ.get("ETHERSCAN_API_KEY"):
+        return {"ran": False, "passed": None}
+    r = semverify.evaluate(descriptor)
+    return {"ran": True, "passed": r["divergences"] == 0 and r["total"] > 0,
+            "verified": r["verified"], "total": r["total"]}
+
+
 def pq_keypair(scheme: str):
-    """Attester PQ keypair: env, else a gitignored keyfile, else generate+persist.
-    The secret key is NEVER written to the tracked tree."""
+    """PQ keypair from env, else a gitignored keyfile, else generated and
+    persisted with owner-only permissions. The secret never enters the tree."""
     sk_env, pk_env = os.environ.get("LUCENT_PQ_SECRET_KEY"), os.environ.get("LUCENT_PQ_PUBLIC_KEY")
     if sk_env and pk_env:
         return bytes.fromhex(pk_env.removeprefix("0x")), bytes.fromhex(sk_env.removeprefix("0x")), "env"
-    keyfile = ROOT / ".attester-keys" / f"{scheme}.json"      # gitignored
+    keyfile = common.ROOT / ".attester-keys" / f"{scheme}.json"
     if keyfile.exists():
         k = json.loads(keyfile.read_text())
         return bytes.fromhex(k["publicKey"]), bytes.fromhex(k["secretKey"]), "keyfile"
-    from importlib import import_module
-    mod = import_module(f"pqcrypto.sign.{scheme}")
-    pk, sk = mod.generate_keypair()
-    # Secret signing key — write owner-only regardless of umask.
+    pk, sk = import_module(f"pqcrypto.sign.{scheme}").generate_keypair()
     keyfile.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
         os.chmod(keyfile.parent, 0o700)
     except OSError:
         pass
-    payload = json.dumps({
-        "scheme": scheme, "publicKey": pk.hex(), "secretKey": sk.hex(),
-        "_warning": "GENERATED demo key. A real attester generates this OFFLINE "
-                    "and keeps secretKey out of any repo. This dir is gitignored.",
-    }, indent=2) + "\n"
+    payload = json.dumps({"scheme": scheme, "publicKey": pk.hex(), "secretKey": sk.hex(),
+                          "_warning": "Generated key. A real attester generates this offline; "
+                                      "this dir is gitignored."}, indent=2) + "\n"
     fd = os.open(str(keyfile), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(payload)
     return pk, sk, "generated"
 
 
-def pq_attest(scheme: str, dhash_hex: str) -> dict:
-    """Quantum-safe signature over the descriptorHash (scheme-agnostic claim)."""
-    from importlib import import_module
+def pq_attest(scheme: str, dhash: str) -> dict:
     mod = import_module(f"pqcrypto.sign.{scheme}")
-    pk, sk, src = pq_keypair(scheme)
-    sig = mod.sign(sk, bytes.fromhex(dhash_hex.removeprefix("0x")))
-    return {
-        "scheme": scheme, "standard": PQ_SCHEMES.get(scheme, "post-quantum"),
-        "signs": "descriptorHash", "keySource": src,
-        "publicKey": "0x" + pk.hex(), "signature": "0x" + sig.hex(),
-        "verify": f"pqcrypto.sign.{scheme}.verify(publicKey, descriptorHash, signature)",
-    }
-
-
-def run_semverify(desc_path: Path) -> dict:
-    """Semantic-verification evidence; the receipt-backed half of the claim."""
-    if not os.environ.get("ETHERSCAN_API_KEY"):
-        return {"ran": False, "passed": None, "note": "no ETHERSCAN_API_KEY"}
-    proc = subprocess.run(
-        [sys.executable, str(Path(__file__).parent / "semverify.py"), str(desc_path)],
-        capture_output=True, text=True)
-    return {"ran": True, "passed": proc.returncode == 0,
-            "note": proc.stdout.strip().splitlines()[-1] if proc.stdout else ""}
+    pk, sk, source = pq_keypair(scheme)
+    sig = mod.sign(sk, bytes.fromhex(dhash.removeprefix("0x")))
+    return {"scheme": scheme, "standard": PQ_SCHEMES.get(scheme, "post-quantum"),
+            "signs": "descriptorHash", "keySource": source,
+            "publicKey": "0x" + pk.hex(), "signature": "0x" + sig.hex(),
+            "verify": f"pqcrypto.sign.{scheme}.verify(publicKey, descriptorHash, signature)"}
 
 
 def eas_typed_data(schema_uid: str, chain_id: int, data_hex: str) -> dict:
-    """EAS offchain attestation (struct version 2 — salted) as EIP-712 payload."""
     return {
         "domain": {"name": "EAS Attestation", "version": "1.2.0",
                    "chainId": chain_id, "verifyingContract": EAS_MAINNET},
@@ -179,131 +121,104 @@ def eas_typed_data(schema_uid: str, chain_id: int, data_hex: str) -> dict:
             ],
         },
         "message": {
-            "version": 2,
-            "schema": schema_uid,
-            "recipient": "0x" + "0" * 40,   # attestation is about a hash, not a party
-            "time": int(time.time()),
-            "expirationTime": 0,             # stands until revoked (drift → revoke, see watch.py)
-            "revocable": True,
-            "refUID": ZERO32,
-            "data": data_hex,
-            "salt": "0x" + secrets.token_bytes(32).hex(),
+            "version": 2, "schema": schema_uid, "recipient": common.ZERO_ADDRESS,
+            "time": int(time.time()), "expirationTime": 0, "revocable": True,
+            "refUID": ZERO32, "data": data_hex, "salt": "0x" + secrets.token_bytes(32).hex(),
         },
     }
 
 
-def write_profile(attester: str, ens: str = "", org: str = "") -> Path:
-    """Auditor registration file, per the registry auditors spec:
-    {id, name, ens?, organization?}. PR to auditors/eip155-1-<addr>/profile.json.
-    (Extra descriptive fields like a review policy belong on the linked site/ENS,
-    not this index — the importer expects exactly these keys.)"""
-    d = ROOT / "dist" / "auditors" / f"eip155-1-{attester.lower()}"
-    d.mkdir(parents=True, exist_ok=True)
-    p = d / "profile.json"
-    profile = {"id": f"eip155:1:{attester}", "name": "Lucent"}
+def write_profile(attester: str, name: str, ens: str = "", org: str = "") -> Path:
+    """Auditor registration file per the registry spec: {id, name, ens?, organization?}."""
+    profile = {"id": f"eip155:1:{attester}", "name": name}
     if ens:
         profile["ens"] = ens
     if org:
         profile["organization"] = org
-    p.write_text(json.dumps(profile, indent=2) + "\n")
-    return p
+    out = common.ROOT / "dist" / "auditors" / f"eip155-1-{attester.lower()}" / "profile.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(profile, indent=2) + "\n")
+    return out
 
 
 def main() -> int:
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if not args:
-        print(__doc__)
-        return 2
-    desc_path = Path(args[0]).resolve()
-    desc = json.loads(desc_path.read_text())
-    schema = os.environ.get("ERC8176_SCHEMA_UID")
-    if "--schema" in sys.argv:
-        schema = sys.argv[sys.argv.index("--schema") + 1]
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("descriptor")
+    ap.add_argument("--schema", default=os.environ.get("ERC8176_SCHEMA_UID"))
+    ap.add_argument("--require-sim", action="store_true")
+    ap.add_argument("--pq", action="store_true")
+    ap.add_argument("--pq-scheme", default=PQ_DEFAULT, choices=list(PQ_SCHEMES))
+    ap.add_argument("--profile", action="store_true")
+    ap.add_argument("--name", default="Lucent")
+    ap.add_argument("--ens", default="")
+    ap.add_argument("--org", default="")
+    args = ap.parse_args()
 
+    desc_path = Path(args.descriptor).resolve()
+    desc = json.loads(desc_path.read_text())
     key = os.environ.get("ATTESTER_PRIVATE_KEY")
     acct = Account.from_key(key) if key else None
 
-    if "--profile" in sys.argv:
+    if args.profile:
         if not acct:
             print("ATTESTER_PRIVATE_KEY required to derive the profile address")
             return 1
-        print(f"auditor profile stub -> {write_profile(acct.address).relative_to(ROOT)}")
+        print(f"profile {common.rel(write_profile(acct.address, args.name, args.ens, args.org))}")
         return 0
 
     name = desc_path.stem
-    print(f"Attestation pipeline — {name}")
-    print("─" * 66)
+    print(f"attest {name}")
 
-    # Gate 1: audit grade
     r = audit.audit(desc)
-    ok = r["grade"] in MIN_GRADE
-    print(f"  audit      grade {r['grade']} ({r['score']}/100)  "
-          f"{'✓' if ok else '✗ below ' + MIN_GRADE[-1] + ' — refusing to attest'}")
-    if not ok:
+    print(f"  audit      grade {r['grade']} ({r['score']}/100)")
+    if r["grade"] not in MIN_GRADE:
+        print(f"  refused: grade below {MIN_GRADE[-1]}")
         return 1
 
-    # Gate 2: semantic evidence
     sim = run_semverify(desc_path)
     if sim["ran"]:
-        print(f"  semverify  {'✓ receipts match screens' if sim['passed'] else '✗ DIVERGENCE'}")
+        print(f"  semverify  {sim['verified']}/{sim['total']} "
+              + ("verified" if sim["passed"] else "DIVERGENCE"))
         if not sim["passed"]:
-            print("  a diverging descriptor must never be attested.")
+            print("  refused: a diverging descriptor must not be attested")
             return 1
     else:
-        print(f"  semverify  skipped ({sim['note']})")
-        if "--require-sim" in sys.argv:
+        print("  semverify  skipped (no ETHERSCAN_API_KEY)")
+        if args.require_sim:
             return 1
 
-    # The claim: keccak256 of the JCS-canonical descriptor
     dhash = descriptor_hash(desc)
-    print(f"  hash       {dhash}  (keccak256 · RFC-8785)")
+    print(f"  hash       {dhash}")
 
-    chain = desc["context"]["contract"]["deployments"][0]["chainId"]
     bundle = {
-        "descriptor": desc_path.name,
-        "descriptorHash": dhash,
-        "canonicalization": "RFC-8785 (JCS)",
-        "standard": "ERC-8176 via EAS offchain",
-        "evidence": {
-            "audit": {"grade": r["grade"], "score": r["score"],
-                      "coverage": f"{r['covered_functions']}/{r['signable_functions']}"},
-            "semverify": sim,
-        },
+        "descriptor": desc_path.name, "descriptorHash": dhash,
+        "canonicalization": "RFC-8785 (JCS)", "standard": "ERC-8176 via EAS offchain",
+        "evidence": {"audit": {"grade": r["grade"], "score": r["score"]}, "semverify": sim},
     }
+    if args.pq:
+        bundle["pqAttestation"] = pq_attest(args.pq_scheme, dhash)
+        b = len(bundle["pqAttestation"]["signature"]) // 2 - 1
+        print(f"  pq         {args.pq_scheme} ({b}B sig, key: {bundle['pqAttestation']['keySource']})")
 
-    # Optional crypto-agile post-quantum co-signature over the same hash.
-    if "--pq" in sys.argv:
-        scheme = flag_value("--pq-scheme", PQ_DEFAULT)
-        pqa = pq_attest(scheme, dhash)
-        bundle["pqAttestation"] = pqa
-        print(f"  pq-sign    {scheme} ✓ quantum-safe "
-              f"({len(pqa['signature']) // 2 - 1} B sig, key: {pqa['keySource']})")
-
-    if not (schema and acct):
-        missing = [w for w, v in
-                   [("ERC8176_SCHEMA_UID/--schema", schema),
-                    ("ATTESTER_PRIVATE_KEY", acct)] if not v]
-        out = desc_path.parent / "sigs" / f"{name}.UNSIGNED.json"
-        out.parent.mkdir(exist_ok=True)
+    sigs = desc_path.parent / "sigs"
+    sigs.mkdir(exist_ok=True)
+    if not (args.schema and acct):
+        out = sigs / f"{name}.UNSIGNED.json"
         out.write_text(json.dumps(bundle, indent=2) + "\n")
-        print(f"  UNSIGNED evidence bundle -> {rel(out)}")
-        print(f"  (missing: {', '.join(missing)} — schema UID is published on clearsigning.org)")
+        print(f"  unsigned evidence bundle {common.rel(out)}")
+        print("  (set --schema and ATTESTER_PRIVATE_KEY to sign)")
         return 0
 
-    typed = eas_typed_data(schema, chain, dhash)
+    typed = eas_typed_data(args.schema, desc["context"]["contract"]["deployments"][0]["chainId"], dhash)
     signed = acct.sign_typed_data(full_message=typed)
     bundle["attestation"] = {
-        "attester": acct.address,
-        "eas": {"contract": EAS_MAINNET, "chainId": chain},
-        "typedData": typed,
-        "signature": signed.signature.to_0x_hex(),
-        "uid": "0x" + keccak(canonical_bytes(typed["message"])).hex(),
+        "attester": acct.address, "eas": {"contract": EAS_MAINNET},
+        "typedData": typed, "signature": signed.signature.to_0x_hex(),
     }
-    out = desc_path.parent / "sigs" / f"{name}.{acct.address.lower()}.json"
-    out.parent.mkdir(exist_ok=True)
+    out = sigs / f"{name}.{acct.address.lower()}.json"
     out.write_text(json.dumps(bundle, indent=2) + "\n")
-    print(f"  ✅ signed by {acct.address}")
-    print(f"  attestation -> {rel(out)}")
+    print(f"  signed by {acct.address}")
+    print(f"  attestation {common.rel(out)}")
     return 0
 
 

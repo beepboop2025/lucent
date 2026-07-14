@@ -1,190 +1,155 @@
 #!/usr/bin/env python3
-"""Simulation-backed SEMANTIC verification — prove the clear-signed screen
-matches what the transaction actually did on-chain.
+"""Verify a descriptor's screen against what its transactions actually did on-chain.
 
-The EF registry CI already gives away schema / selector / Sourcify / ABI checks.
-Those prove a descriptor is *well-formed*. They do NOT prove the human summary
-is *honest*: a descriptor can pass every CI check and still render a benign
-screen for a call that moves funds somewhere else. That gap is the real attack
-surface, and closing it is the defensible rung.
+`erc7730 lint` proves a descriptor is well-formed; this proves the human summary
+is faithful. For each real test vector it fetches the mined receipt (the ground
+truth of what moved), extracts the asset movements and approvals, renders the
+screen, and asserts every real recipient/operator is shown, ETH spent is shown,
+and the field labelled as the recipient matches the address that received the
+asset. A divergence means the screen misrepresents the transaction.
 
-For a mined transaction, the receipt IS the ground truth of what moved. This
-tool, for each real vector: fetches the tx + receipt, extracts the actual asset
-movements and approvals (ETH / ERC-20 Transfer / ERC-1155 TransferSingle /
-ApprovalForAll), renders the descriptor's screen, and asserts the screen is
-faithful — every real recipient/operator is shown, ETH spent is shown, nothing
-material is hidden. Divergence => the descriptor lies, even if lint+audit pass.
-
-(For hypothetical/unmined calls the same assertions run against a fork replay —
-Foundry `cast run`; not required here since we verify real vectors.)
-
-Env:  ETHERSCAN_API_KEY
-Usage: python scripts/semverify.py <descriptor.json> [tests.json]
+    semverify.py <descriptor.json> [tests.json]   (needs ETHERSCAN_API_KEY)
 """
 
 from __future__ import annotations
 
+import argparse
 import json
-import os
-import sys
-import urllib.request
-import urllib.parse
 from pathlib import Path
 
 from eth_abi import decode as abi_decode
 
-import preview
+import common
 
-API = "https://api.etherscan.io/v2/api"
-ZERO = "0x" + "0" * 40  # mint/burn counterparty — not a recipient to display
 TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 TRANSFER_SINGLE = "0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
 APPROVAL_FOR_ALL = "0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31"
+RECIPIENT_LABELS = ("to", "recipient", "send to", "receiver")
 
 
-def es(params: dict):
-    q = {**params, "apikey": os.environ["ETHERSCAN_API_KEY"]}
-    with urllib.request.urlopen(API + "?" + urllib.parse.urlencode(q), timeout=30) as r:
-        return json.loads(r.read())
+def _tx(h: str) -> dict:
+    return common.etherscan(chainid=1, module="proxy",
+                            action="eth_getTransactionByHash", txhash=h)["result"]
+
+
+def _receipt(h: str) -> dict:
+    return common.etherscan(chainid=1, module="proxy",
+                            action="eth_getTransactionReceipt", txhash=h)["result"]
 
 
 def _addr(topic: str) -> str:
     return ("0x" + topic[-40:]).lower()
 
 
-def actual_movements(tx: dict, receipt: dict) -> list[dict]:
-    """Ground-truth asset movements + approvals from the mined receipt."""
-    moves = []
-    val = int(tx["value"], 16)
-    if val > 0:
-        moves.append({"kind": "eth", "to": tx["to"].lower(), "amount": val})
-    for lg in receipt["logs"]:
-        t = lg["topics"]
-        t0 = t[0].lower()
-        if t0 == TRANSFER and len(t) == 3:
-            moves.append({"kind": "erc20", "token": lg["address"].lower(),
-                          "from": _addr(t[1]), "to": _addr(t[2]),
-                          "amount": int(lg["data"], 16) if lg["data"] not in ("0x", "") else 0})
-        elif t0 == TRANSFER_SINGLE and len(t) == 4:
-            d = lg["data"][2:]
-            moves.append({"kind": "erc1155", "token": lg["address"].lower(),
-                          "from": _addr(t[2]), "to": _addr(t[3]),
-                          "id": int(d[:64], 16), "amount": int(d[64:128], 16)})
-        elif t0 == APPROVAL_FOR_ALL and len(t) == 3:
-            moves.append({"kind": "approval_all", "token": lg["address"].lower(),
-                          "owner": _addr(t[1]), "operator": _addr(t[2]),
-                          "approved": int(lg["data"], 16) == 1})
-    return moves
+def movements(tx: dict, receipt: dict) -> list[dict]:
+    """Asset movements and approvals realised by the transaction."""
+    out = []
+    value = int(tx["value"], 16)
+    if value > 0:
+        out.append({"kind": "eth", "to": tx["to"].lower(), "amount": value})
+    for log in receipt["logs"]:
+        topics = log["topics"]
+        t0 = topics[0].lower()
+        if t0 == TRANSFER and len(topics) == 3:
+            out.append({"kind": "erc20", "from": _addr(topics[1]), "to": _addr(topics[2]),
+                        "amount": int(log["data"], 16) if log["data"] not in ("0x", "") else 0})
+        elif t0 == TRANSFER_SINGLE and len(topics) == 4:
+            data = log["data"][2:]
+            out.append({"kind": "erc1155", "from": _addr(topics[2]), "to": _addr(topics[3]),
+                        "id": int(data[:64], 16), "amount": int(data[64:128], 16)})
+        elif t0 == APPROVAL_FOR_ALL and len(topics) == 3:
+            out.append({"kind": "approval", "owner": _addr(topics[1]),
+                        "operator": _addr(topics[2]), "approved": int(log["data"], 16) == 1})
+    return out
 
 
-def screen_claims(desc: dict, to: str, value: int, data: bytes):
-    """What the descriptor's screen presents: addresses shown, ETH-amount shown."""
-    abi = preview.descriptor_abi(desc)
-    idx = preview.build_selector_index(abi)
-    sig, inputs = idx["0x" + data[:4].hex()]
-    types = [preview._canonical_type(i) for i in inputs]
-    decoded = dict(zip([i["name"] for i in inputs], abi_decode(types, data[4:])))
+def screen_claims(desc: dict, data: bytes):
+    """(signature, shown addresses, shows @.value, [(label, address)]) for the screen."""
+    abi = common.descriptor_abi(desc)
+    sig, inputs = common.selector_index(abi)["0x" + data[:4].hex()]
+    decoded = dict(zip([i["name"] for i in inputs],
+                       abi_decode([common.canonical_type(i) for i in inputs], data[4:])))
     fmt = desc["display"]["formats"].get(sig, {})
-    shown_addrs, shows_value, labeled = set(), False, []
+    shown, shows_value, labelled = set(), False, []
     for f in fmt.get("fields", []):
         if f.get("visible") == "never":
             continue
-        p = f.get("path", "")
-        if p == "@.value":
+        path = f.get("path", "")
+        if path == "@.value":
             shows_value = True
-        if f.get("format") == "addressName" and p.startswith("#."):
-            v = decoded.get(p[2:].split(".")[0])
+        if f.get("format") == "addressName" and path.startswith("#."):
+            v = decoded.get(path[2:].split(".")[0])
             if isinstance(v, str) and v.startswith("0x"):
-                shown_addrs.add(v.lower())
-                labeled.append((f.get("label", "").strip().lower(), v.lower()))
-    return sig, shown_addrs, shows_value, labeled
+                shown.add(v.lower())
+                labelled.append((f.get("label", "").strip().lower(), v.lower()))
+    return sig, shown, shows_value, labelled
 
 
-# labels whose field, if present, must name an actual on-chain recipient
-RECIPIENT_LABELS = ("to", "recipient", "send to", "receiver")
-
-
-def verify_one(desc, contract, tx, receipt):
-    value = int(tx["value"], 16)
+def verify_one(desc: dict, contract: str, tx: dict, receipt: dict):
     data = bytes.fromhex(tx["input"][2:])
-    sig, shown, shows_value, labeled = screen_claims(desc, tx["to"], value, data)
-    moves = actual_movements(tx, receipt)
+    sig, shown, shows_value, labelled = screen_claims(desc, data)
+    moves = movements(tx, receipt)
     contract = contract.lower()
-    findings = []
     recipients = {m["to"] for m in moves
-                  if m["kind"] in ("erc20", "erc1155") and m["amount"] > 0 and m["to"] != ZERO}
+                  if m["kind"] in ("erc20", "erc1155") and m["amount"] > 0
+                  and m["to"] != common.ZERO_ADDRESS}
+    findings = []
 
     if any(m["kind"] == "eth" for m in moves) and not shows_value:
         findings.append(("CRITICAL", "spends ETH but the screen shows no amount"))
-
     for m in moves:
-        if m["kind"] in ("erc20", "erc1155") and m["amount"] > 0 and m["to"] != ZERO:
-            # a real recipient (not a burn, not the contract) must appear on screen
-            if m["to"] not in shown and m["to"] != contract:
-                findings.append(("HIGH",
-                    f"asset sent to {m['to'][:10]}… which the screen never shows (hidden recipient)"))
-        if m["kind"] == "approval_all" and m["approved"] and m["operator"] not in shown:
-            findings.append(("CRITICAL",
-                f"grants approval to operator {m['operator'][:10]}… not shown on screen"))
-
-    # role-aware: a field LABELED as the recipient must equal an actual recipient
+        if m["kind"] in ("erc20", "erc1155") and m["to"] in recipients \
+                and m["to"] not in shown and m["to"] != contract:
+            findings.append(("HIGH", f"asset sent to {m['to'][:10]}… not shown on screen"))
+        if m["kind"] == "approval" and m["approved"] and m["operator"] not in shown:
+            findings.append(("CRITICAL", f"approves operator {m['operator'][:10]}… not shown"))
     if recipients:
-        for label, addr in labeled:
-            if any(label == r or label.startswith(r) for r in RECIPIENT_LABELS):
-                if addr not in recipients and addr != contract:
-                    findings.append(("CRITICAL",
-                        f"screen labels {addr[:10]}… as recipient, but assets went to "
-                        f"{next(iter(recipients))[:10]}… (spoofed recipient)"))
-
+        for label, addr in labelled:
+            if any(label == r or label.startswith(r) for r in RECIPIENT_LABELS) \
+                    and addr not in recipients and addr != contract:
+                findings.append(("CRITICAL",
+                    f"screen labels {addr[:10]}… as recipient, but assets went elsewhere"))
     return sig, moves, findings
 
 
-def evaluate(desc_path) -> dict:
-    """Structured semantic-verification result for a descriptor (used by attest.py)."""
-    desc_path = Path(desc_path)
-    desc = json.loads(desc_path.read_text())
-    tests_path = desc_path.parent / "tests" / (desc_path.stem + ".tests.json")
-    tests = json.loads(tests_path.read_text())["tests"]
+def evaluate(descriptor, tests=None) -> dict:
+    descriptor = Path(descriptor)
+    desc = json.loads(descriptor.read_text())
+    tests_path = Path(tests) if tests else descriptor.parent / "tests" / (descriptor.stem + ".tests.json")
+    vectors = json.loads(tests_path.read_text())["tests"]
     contract = desc["context"]["contract"]["deployments"][0]["address"]
 
-    rows, txhashes, divergences = [], [], 0
-    for t in tests:
-        h = t.get("txHash")
+    rows, divergences = [], 0
+    for v in vectors:
+        h = v.get("txHash")
         if not h:
             continue
-        tx = es({"chainid": 1, "module": "proxy", "action": "eth_getTransactionByHash", "txhash": h})["result"]
-        rc = es({"chainid": 1, "module": "proxy", "action": "eth_getTransactionReceipt", "txhash": h})["result"]
-        sig, moves, findings = verify_one(desc, contract, tx, rc)
+        sig, moves, findings = verify_one(desc, contract, _tx(h), _receipt(h))
         rows.append({"sig": sig, "txHash": h, "ok": not findings,
                      "movements": sorted({m["kind"] for m in moves}), "findings": findings})
-        txhashes.append(h)
         divergences += len(findings)
-    verified = sum(1 for r in rows if r["ok"])
-    return {"total": len(rows), "verified": verified, "divergences": divergences,
-            "txHashes": txhashes, "rows": rows}
+    return {"total": len(rows), "verified": sum(1 for r in rows if r["ok"]),
+            "divergences": divergences, "txHashes": [r["txHash"] for r in rows], "rows": rows}
 
 
 def main() -> int:
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if not args:
-        print(__doc__)
-        return 2
-    desc_path = Path(args[0])
-    r = evaluate(desc_path)
-    print(f"Semantic verification — {desc_path.stem}")
-    print(f"  ground truth: mined receipts (Etherscan)   vectors: {r['total']}")
-    print("─" * 66)
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("descriptor")
+    ap.add_argument("tests", nargs="?")
+    args = ap.parse_args()
+
+    r = evaluate(args.descriptor, args.tests)
+    print(f"{Path(args.descriptor).stem}: {r['total']} vectors")
     for row in r["rows"]:
-        mv = ", ".join(row["movements"]) or "no asset movement"
+        moves = ", ".join(row["movements"]) or "no asset movement"
         if row["ok"]:
-            print(f"  ✓ {row['sig'].split('(')[0]:22} screen matches chain  ({mv})")
+            print(f"  ok   {row['sig'].split('(')[0]:24} ({moves})")
         else:
-            print(f"  ✗ {row['sig'].split('(')[0]:22} DIVERGENCE  ({mv})")
-            for sev, msg in row["findings"]:
-                print(f"      {sev}: {msg}")
-    print("─" * 66)
-    stamp = "SIMULATION-VERIFIED ✅" if r["divergences"] == 0 else f"DIVERGENCE ✗ ({r['divergences']})"
-    print(f"  {r['verified']} verified / {r['total']} vectors  →  {stamp}")
+            print(f"  FAIL {row['sig'].split('(')[0]:24} ({moves})")
+            for severity, msg in row["findings"]:
+                print(f"       {severity}: {msg}")
+    verdict = "verified" if r["divergences"] == 0 and r["total"] else f"divergence ({r['divergences']})"
+    print(f"  {r['verified']}/{r['total']} -> {verdict}")
     return 1 if r["divergences"] else 0
 
 
