@@ -1,0 +1,57 @@
+{
+  "eip155:1:0xff252725f6122a92551a5fa9a6b6bf10eb0be035": {
+    "impl": null,
+    "abiHash": "0xa5a036cad73e5a30b24fbfeb394957c7176552bcba59fac03f514a406d769f49",
+    "signable": [
+      "renewAll(string[],uint256)"
+    ],
+    "descriptor": "calldata-BulkRenewal.json"
+  },
+  "eip155:1:0x253553366da8546fc250f225fe3d25d0c782303b": {
+    "impl": null,
+    "abiHash": "0xc6ce4a3d72042bb932449fc193a8129ee406177e55298b9e716e3b3fee5ba73c",
+    "signable": [
+      "commit(bytes32)",
+      "recoverFunds(address,address,uint256)",
+      "register(string,address,uint256,bytes32,address,bytes[],bool,uint16)",
+      "renew(string,uint256)",
+      "renounceOwnership()",
+      "transferOwnership(address)",
+      "withdraw()"
+    ],
+    "descriptor": "calldata-ETHRegistrarController.json"
+  },
+  "eip155:1:0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401": {
+    "impl": null,
+    "abiHash": "0x6e32fa74e3066e230e12f6307bfb2f9ce1d1c9fdca53834fc348cc2698638026",
+    "signable": [
+      "approve(address,uint256)",
+      "extendExpiry(bytes32,bytes32,uint64)",
+      "onERC721Received(address,address,uint256,bytes)",
+      "recoverFunds(address,address,uint256)",
+      "registerAndWrapETH2LD(string,address,uint256,address,uint16)",
+      "renew(uint256,uint256)",
+      "renounceOwnership()",
+      "safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)",
+      "safeTransferFrom(address,address,uint256,uint256,bytes)",
+      "setApprovalForAll(address,bool)",
+      "setChildFuses(bytes32,bytes32,uint32,uint64)",
+      "setController(address,bool)",
+      "setFuses(bytes32,uint16)",
+      "setMetadataService(address)",
+      "setRecord(bytes32,address,address,uint64)",
+      "setResolver(bytes32,address)",
+      "setSubnodeOwner(bytes32,string,address,uint32,uint64)",
+      "setSubnodeRecord(bytes32,string,address,address,uint64,uint32,uint64)",
+      "setTTL(bytes32,uint64)",
+      "setUpgradeContract(address)",
+      "transferOwnership(address)",
+      "unwrap(bytes32,bytes32,address)",
+      "unwrapETH2LD(bytes32,address,address)",
+      "upgrade(bytes,bytes)",
+      "wrap(bytes,address,address)",
+      "wrapETH2LD(string,address,uint16,address)"
+    ],
+    "descriptor": "calldata-NameWrapper.json"
+  }
+}

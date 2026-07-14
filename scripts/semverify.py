@@ -139,43 +139,53 @@ def verify_one(desc, contract, tx, receipt):
     return sig, moves, findings
 
 
+def evaluate(desc_path) -> dict:
+    """Structured semantic-verification result for a descriptor (used by attest.py)."""
+    desc_path = Path(desc_path)
+    desc = json.loads(desc_path.read_text())
+    tests_path = desc_path.parent / "tests" / (desc_path.stem + ".tests.json")
+    tests = json.loads(tests_path.read_text())["tests"]
+    contract = desc["context"]["contract"]["deployments"][0]["address"]
+
+    rows, txhashes, divergences = [], [], 0
+    for t in tests:
+        h = t.get("txHash")
+        if not h:
+            continue
+        tx = es({"chainid": 1, "module": "proxy", "action": "eth_getTransactionByHash", "txhash": h})["result"]
+        rc = es({"chainid": 1, "module": "proxy", "action": "eth_getTransactionReceipt", "txhash": h})["result"]
+        sig, moves, findings = verify_one(desc, contract, tx, rc)
+        rows.append({"sig": sig, "txHash": h, "ok": not findings,
+                     "movements": sorted({m["kind"] for m in moves}), "findings": findings})
+        txhashes.append(h)
+        divergences += len(findings)
+    verified = sum(1 for r in rows if r["ok"])
+    return {"total": len(rows), "verified": verified, "divergences": divergences,
+            "txHashes": txhashes, "rows": rows}
+
+
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
         print(__doc__)
         return 2
     desc_path = Path(args[0])
-    desc = json.loads(desc_path.read_text())
-    tests_path = Path(args[1]) if len(args) > 1 else \
-        desc_path.parent / "tests" / (desc_path.stem + ".tests.json")
-    tests = json.loads(tests_path.read_text())["tests"]
-    contract = desc["context"]["contract"]["deployments"][0]["address"]
-
+    r = evaluate(desc_path)
     print(f"Semantic verification — {desc_path.stem}")
-    print(f"  ground truth: mined receipts (Etherscan)   vectors: {len(tests)}")
+    print(f"  ground truth: mined receipts (Etherscan)   vectors: {r['total']}")
     print("─" * 66)
-    total_findings, verified = 0, 0
-    for t in tests:
-        h = t.get("txHash")
-        if not h:
-            print(f"  ⚠ {t['description']}: no txHash (synthetic) — skipped")
-            continue
-        tx = es({"chainid": 1, "module": "proxy", "action": "eth_getTransactionByHash", "txhash": h})["result"]
-        rc = es({"chainid": 1, "module": "proxy", "action": "eth_getTransactionReceipt", "txhash": h})["result"]
-        sig, moves, findings = verify_one(desc, contract, tx, rc)
-        mv = ", ".join(sorted({m["kind"] for m in moves})) or "no asset movement"
-        if findings:
-            print(f"  ✗ {sig.split('(')[0]:22} DIVERGENCE  ({mv})")
-            for sev, msg in findings:
-                print(f"      {sev}: {msg}")
-            total_findings += len(findings)
+    for row in r["rows"]:
+        mv = ", ".join(row["movements"]) or "no asset movement"
+        if row["ok"]:
+            print(f"  ✓ {row['sig'].split('(')[0]:22} screen matches chain  ({mv})")
         else:
-            print(f"  ✓ {sig.split('(')[0]:22} screen matches chain  ({mv})")
-            verified += 1
+            print(f"  ✗ {row['sig'].split('(')[0]:22} DIVERGENCE  ({mv})")
+            for sev, msg in row["findings"]:
+                print(f"      {sev}: {msg}")
     print("─" * 66)
-    stamp = "SIMULATION-VERIFIED ✅" if total_findings == 0 else f"DIVERGENCE ✗ ({total_findings})"
-    print(f"  {verified} verified / {len(tests)} vectors  →  {stamp}")
-    return 1 if total_findings else 0
+    stamp = "SIMULATION-VERIFIED ✅" if r["divergences"] == 0 else f"DIVERGENCE ✗ ({r['divergences']})"
+    print(f"  {r['verified']} verified / {r['total']} vectors  →  {stamp}")
+    return 1 if r["divergences"] else 0
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ discover:
 setup:
 	python3.12 -m venv $(VENV)
 	$(PY) -m pip install -q --upgrade pip
-	$(PY) -m pip install -q erc7730 eth-account
+	$(PY) -m pip install -q erc7730 eth-account rfc8785
 
 ## fetch: pull a verified ABI from Sourcify.  make fetch CHAIN=1 ADDR=0x...
 fetch:
@@ -35,6 +35,18 @@ audit:
 ## semverify: prove the screen matches actual on-chain movements (needs ETHERSCAN key)
 semverify:
 	$(PY) scripts/semverify.py $(DESC)
+
+## attest: sign an evidence-backed ERC-8176 attestation over the descriptor
+attest:
+	$(PY) scripts/attest.py $(DESC)
+
+## watch: check watched contracts for drift vs their descriptors (cron-able)
+watch:
+	$(PY) scripts/watch.py
+
+## watch-init: record baselines for all registry descriptors
+watch-init:
+	$(PY) scripts/watch.py --init
 
 ## resolve: expand a descriptor to resolved form (proves all paths resolve)
 resolve:

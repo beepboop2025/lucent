@@ -45,6 +45,14 @@ hardening + test layer that a generator cannot produce:
 | 5. **Prove** | `scripts/preview.py` + `fetch_tx.py` | Renders the signer screen + emits **real** registry test vectors |
 | 6. Package | `scripts/to_submission.py` | Registry-PR form under `dist/` — **gated: refuses to package below Grade B** |
 | 7. Submit | PR to registry | Auto-imported into the Ledger Cryptoassets list once merged |
+| 8. **Attest** | `scripts/attest.py` | Signed **ERC-8176** (EAS) attestation over the JCS-canonical hash — gated on audit grade + semverify pass |
+| 9. **Watch** | `scripts/watch.py` | Cron drift monitor: proxy impl changes, new uncovered functions, stale entries → re-verify / re-attest / revoke |
+
+Stages 8 and 9 are the business model: 8 is what wallets consume when they
+weight descriptor trust (attestations, not descriptors, carry the pricing
+power), and 9 is the recurring service — a verified descriptor silently rots
+the moment its proxy upgrades, and nothing else in the clear-signing stack
+re-checks.
 
 Stages 3, 4b and 5 are where quality lives, and where a competitor running only
 the LLM generator falls short.
