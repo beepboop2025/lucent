@@ -32,6 +32,10 @@ lint:
 audit:
 	$(PY) scripts/audit.py $(DESC)
 
+## semverify: prove the screen matches actual on-chain movements (needs ETHERSCAN key)
+semverify:
+	$(PY) scripts/semverify.py $(DESC)
+
 ## resolve: expand a descriptor to resolved form (proves all paths resolve)
 resolve:
 	COLUMNS=100000 $(ERC) resolve $(DESC) >/dev/null && echo "resolved OK: $(DESC)"

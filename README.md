@@ -41,6 +41,7 @@ hardening + test layer that a generator cannot produce:
 | 3. **Harden** | manual, expert | Intents, amounts, formats, visibility, security review — *the value-add* |
 | 4. Lint | `erc7730 lint` | Schema-valid, within device limits, ABI-consistent |
 | 4b. **Audit** | `scripts/audit.py` | Security/quality **grade** — the moat as a tool (see below) |
+| 4c. **Semantic verify** | `scripts/semverify.py` | Proves the screen matches what the tx **actually did on-chain** (see below) |
 | 5. **Prove** | `scripts/preview.py` + `fetch_tx.py` | Renders the signer screen + emits **real** registry test vectors |
 | 6. Package | `scripts/to_submission.py` | Registry-PR form under `dist/` — **gated: refuses to package below Grade B** |
 | 7. Submit | PR to registry | Auto-imported into the Ledger Cryptoassets list once merged |
@@ -63,6 +64,40 @@ The same raw LLM-generated ENS draft a competitor would submit scores **Grade F
 grade is both an internal gate and a sellable artifact ("audited, Grade A").
 `scripts/to_submission.py` runs it and **refuses to package anything below Grade
 B** (override with `--force`).
+
+## Semantic verification — the up-a-rung moat
+
+The EF registry CI now gives away schema / selector / Sourcify / ABI checks, so
+"ABI-clean descriptor" is becoming table stakes. Those prove a descriptor is
+*well-formed*; they can't prove the human summary is *honest*. A descriptor can
+pass every structural check and still render a benign screen for a call that
+sends assets elsewhere.
+
+`scripts/semverify.py` closes that gap. For each real vector it pulls the mined
+**receipt** (the ground truth of what moved), extracts the actual asset
+movements and approvals (ETH / ERC-20 / ERC-1155 / ApprovalForAll), and asserts
+the screen is faithful — the real recipient/operator is shown, ETH spent is
+shown, and the field *labelled* as the recipient equals the address that
+actually received the asset.
+
+A worked spoof — `safeTransferFrom` with the **To/From labels swapped**:
+
+| Check | Result |
+|-------|--------|
+| `erc7730 lint` (= EF CI) | **PASS** — schema-valid, both fields shown |
+| `audit.py` (structural) | **Grade A** — structurally perfect |
+| `semverify.py` (semantic) | **DIVERGENCE** — "screen labels the sender as recipient; assets went elsewhere" |
+
+Only simulation-backed semantic verification catches it. "Simulation-verified:
+the screen matches the chain" is a claim no generator or linter can make, and —
+critically — it is the only trust signal an autonomous **agent** can consume,
+since an agent has no human to read a warning popup.
+
+**Scope, honestly:** for mined transactions the receipt *is* the realized
+execution, so this is exact. For *hypothetical/unmined* calls the same
+assertions run against a fork replay (Foundry `cast run`) — not yet wired, since
+we verify real vectors. The role check is heuristic on field labels; it catches
+recipient hiding and recipient/label spoofing, not every possible semantic lie.
 
 ### Discovery output (seed run)
 
