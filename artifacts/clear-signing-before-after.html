@@ -6,7 +6,7 @@
     --ink-soft: #454e5e;
     --ink-faint: #7a8397;
     --line: #dde1e8;
-    --accent: #b9791c;        /* honey — brand, used sparingly */
+    --accent: #b9791c;        /* honey, brand, used sparingly */
     --accent-soft: #f3e6cf;
     --danger: #c0362c;
     --danger-soft: #f6e0dd;
@@ -161,11 +161,11 @@
 
 <div class="wrap">
   <div class="inner">
-    <p class="eyebrow">Clear Signing · ERC-7730</p>
+    <p class="eyebrow">Clear Signing / ERC-7730</p>
     <h1>The same transaction. <span class="q">One is readable.</span></h1>
     <p class="lede">
       When a wallet can't decode a contract, it shows raw hex and a blind-signing
-      warning — and users approve anyway. That gap is how phishing drains wallets.
+      warning, and users approve anyway. That gap is how phishing drains wallets.
       Here is a real ENS registration, signed on a hardware wallet, with and
       without a Clear Signing descriptor.
     </p>
@@ -181,10 +181,10 @@
           <div class="screen">
             <div class="banner bad">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-              Blind signing — data not clear
+              Blind signing, data not clear
             </div>
             <div class="hex" aria-label="raw transaction calldata">
-              <span class="sel">0x74694a2b</span>0000000000000000000000000000000000000000000000000000000000000100000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000000000001e13380000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000231b0ee14048e9dccd1d247744d114a4eb5e8e630000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000000100…
+              <span class="sel">0x74694a2b</span>0000000000000000000000000000000000000000000000000000000000000100000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000000000001e13380000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000231b0ee14048e9dccd1d247744d114a4eb5e8e630000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000000100...
             </div>
             <div class="hex-note">357 bytes of calldata. What are you approving?</div>
             <div class="keys">
@@ -205,14 +205,14 @@
           <div class="screen">
             <div class="banner good">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-              Clear signed — verified on screen
+              Clear signed, verified on screen
             </div>
             <div class="intent">Register .eth name</div>
             <div class="rows">
               <div class="row"><span class="k">Name (.eth)</span><span class="v">yourname</span></div>
               <div class="row pay"><span class="k">Amount paid</span><span class="v">0.005 ETH</span></div>
               <div class="row"><span class="k">Registration period</span><span class="v">1 year</span></div>
-              <div class="row"><span class="k">Owner</span><span class="v">0xd8dA…96045</span></div>
+              <div class="row"><span class="k">Owner</span><span class="v">0xd8dA...96045</span></div>
               <div class="row"><span class="k">Set as primary name</span><span class="v">true</span></div>
             </div>
             <div class="keys">
@@ -227,7 +227,7 @@
     <div class="foot">
       <div class="stat">
         <div class="n accent">0</div>
-        <div class="l">ENS descriptors in the registry today — a genuine gap</div>
+        <div class="l">ENS descriptors in the registry today, a genuine gap</div>
       </div>
       <div class="stat">
         <div class="n">7 / 7</div>
@@ -242,7 +242,7 @@
     <p class="caption">
       Screens are faithful representations of an ERC-7730 render, not a Ledger product screenshot.
       Calldata and fields are from a real <code>register(...)</code> call on the ENS ETHRegistrarController
-      (<code>0x2535…303b</code>). Descriptor and tests validated with the official <code>erc7730</code> tooling.
+      (<code>0x2535...303b</code>). Descriptor and tests validated with the official <code>erc7730</code> tooling.
     </p>
   </div>
 </div>
