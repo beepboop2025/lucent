@@ -145,10 +145,22 @@ swapped:
 | `audit.py` | grade A (structurally correct) |
 | `semverify.py` | divergence (labels the sender as recipient) |
 
-The receipt is exact for mined transactions. Hypothetical or unmined calls would
-need a fork replay (Foundry `cast run`), which is not wired up. The recipient
-check is heuristic on field labels; it catches recipient hiding and label
-spoofing, not every possible mismatch.
+The receipt is exact for mined transactions. The recipient check is heuristic on
+field labels; it catches recipient hiding and label spoofing, not every possible
+mismatch.
+
+**Unmined calls — fork replay.** A brand-new descriptor for a call that has never
+been mined (a fresh contract, a rarely-used function) has no receipt to check
+against. `forkreplay.py` closes that gap: given a call spec
+`{signer, function, args, value}` it forks mainnet at HEAD into a local `anvil`,
+impersonates the signer, executes the call against real on-chain state, and reads
+back the standard eth receipt. That `(tx, receipt)` pair is handed to
+`semverify.verify_one` **unchanged** — so a label swap or hidden recipient on an
+unmined call is caught by the identical, tested code path, not a second
+implementation. Run it with `make semverify DESC=… SIMULATE=1` on a test file
+whose vectors carry a `call` object instead of a `txHash`. It needs `anvil` +
+`cast` (`foundryup`) and an RPC URL (`ETH_RPC_URL`); without them the call vector
+is skipped with a reason, never silently passed.
 
 ## Post-quantum co-signing
 

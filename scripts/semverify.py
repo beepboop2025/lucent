@@ -112,42 +112,72 @@ def verify_one(desc: dict, contract: str, tx: dict, receipt: dict):
     return sig, moves, findings
 
 
-def evaluate(descriptor, tests=None) -> dict:
+def evaluate(descriptor, tests=None, simulate=False) -> dict:
     descriptor = Path(descriptor)
     desc = json.loads(descriptor.read_text())
     tests_path = Path(tests) if tests else descriptor.parent / "tests" / (descriptor.stem + ".tests.json")
     vectors = json.loads(tests_path.read_text())["tests"]
     contract = desc["context"]["contract"]["deployments"][0]["address"]
 
-    rows, divergences = [], 0
+    rows, divergences, skipped = [], 0, []
     for v in vectors:
         h = v.get("txHash")
-        if not h:
+        if h:  # mined vector: real receipt from the explorer
+            sig, moves, findings = verify_one(desc, contract, _tx(h), _receipt(h))
+            source = h
+        elif simulate and v.get("call"):  # unmined vector: fork-replay
+            try:
+                tx, receipt = _simulate_vector(contract, v["call"])
+            except Exception as exc:  # forkreplay import or run failure -> honest skip
+                skipped.append({"call": v["call"].get("function"), "reason": str(exc)[:160]})
+                continue
+            sig, moves, findings = verify_one(desc, contract, tx, receipt)
+            source = "fork:" + v["call"].get("function", "?")
+        else:
             continue
-        sig, moves, findings = verify_one(desc, contract, _tx(h), _receipt(h))
-        rows.append({"sig": sig, "txHash": h, "ok": not findings,
+        rows.append({"sig": sig, "source": source, "ok": not findings,
                      "movements": sorted({m["kind"] for m in moves}), "findings": findings})
         divergences += len(findings)
     return {"total": len(rows), "verified": sum(1 for r in rows if r["ok"]),
-            "divergences": divergences, "txHashes": [r["txHash"] for r in rows], "rows": rows}
+            "divergences": divergences, "sources": [r["source"] for r in rows],
+            "rows": rows, "skipped": skipped}
+
+
+def _simulate_vector(contract: str, call: dict):
+    """Fork-replay one unmined call spec into (tx, receipt) for verify_one.
+    call = {signer, function (sig), args?, value?, rpc?, block?}."""
+    import forkreplay
+    return forkreplay.simulate(
+        contract=call.get("contract", contract),
+        signer=call["signer"],
+        sig=call["function"],
+        args=call.get("args", []),
+        value=int(call.get("value", 0)),
+        explicit_rpc=call.get("rpc"),
+        block=call.get("block"),
+    )
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("descriptor")
     ap.add_argument("tests", nargs="?")
+    ap.add_argument("--simulate", action="store_true",
+                    help="fork-replay vectors that have a `call` spec instead of a txHash "
+                         "(needs anvil + cast + an RPC URL)")
     args = ap.parse_args()
 
-    r = evaluate(args.descriptor, args.tests)
+    r = evaluate(args.descriptor, args.tests, simulate=args.simulate)
     print(f"{Path(args.descriptor).stem}: {r['total']} vectors")
     for row in r["rows"]:
         moves = ", ".join(row["movements"]) or "no asset movement"
-        if row["ok"]:
-            print(f"  ok   {row['sig'].split('(')[0]:24} ({moves})")
-        else:
-            print(f"  FAIL {row['sig'].split('(')[0]:24} ({moves})")
+        tag = "ok  " if row["ok"] else "FAIL"
+        print(f"  {tag} {row['sig'].split('(')[0]:24} ({moves})  [{row['source']}]")
+        if not row["ok"]:
             for severity, msg in row["findings"]:
                 print(f"       {severity}: {msg}")
+    for s in r.get("skipped", []):
+        print(f"  skip {s['call']}: {s['reason']}")
     verdict = "verified" if r["divergences"] == 0 and r["total"] else f"divergence ({r['divergences']})"
     print(f"  {r['verified']}/{r['total']} -> {verdict}")
     return 1 if r["divergences"] else 0

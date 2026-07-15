@@ -48,9 +48,10 @@ danger:
 test:
 	$(PY) -m pytest tests/ -q
 
-## semverify: check the screen against on-chain movements (needs ETHERSCAN_API_KEY)
+## semverify: check the screen against on-chain movements (needs ETHERSCAN_API_KEY;
+## set SIMULATE=1 to fork-replay unmined `call` vectors, needs anvil+cast+ETH_RPC_URL)
 semverify:
-	$(PY) scripts/semverify.py $(DESC)
+	$(PY) scripts/semverify.py $(DESC) $(if $(SIMULATE),--simulate,)
 
 ## resolve: expand a descriptor to resolved form
 resolve:
