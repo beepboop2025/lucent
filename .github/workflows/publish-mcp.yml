@@ -1,0 +1,49 @@
+name: publish-mcp
+
+# Build the Lucent MCP server image, push it to GHCR, and publish the listing to
+# the official MCP registry (io.github.beepboop2025/lucent). Fully autonomous:
+# GHCR push uses the workflow's own GITHUB_TOKEN, and the registry publish uses
+# GitHub OIDC — no external logins or secrets.
+#
+# One-time manual step after the FIRST run: make the GHCR package public
+# (GitHub → your packages → lucent-mcp → Package settings → Change visibility →
+# Public), otherwise MCP clients cannot pull the image. GHCR packages are
+# private on first push and visibility cannot be flipped by GITHUB_TOKEN.
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write        # push the image to GHCR
+  id-token: write        # mcp-publisher proves the io.github.* namespace via OIDC
+
+env:
+  IMAGE: ghcr.io/beepboop2025/lucent-mcp:v0.1.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push the MCP server image
+        run: |
+          docker build -f Dockerfile.mcp -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher && sudo mv mcp-publisher /usr/local/bin/
+
+      - name: Publish the listing to the MCP registry
+        run: |
+          mcp-publisher login github-oidc
+          mcp-publisher publish
