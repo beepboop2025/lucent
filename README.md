@@ -34,6 +34,7 @@ export ETHERSCAN_API_KEY=...
 | Lint | `erc7730 lint` | Schema, selectors, device limits, ABI consistency |
 | Audit | `audit.py` | Grade the descriptor on screen trustworthiness |
 | Comprehend | `comprehend.py` | Grade the descriptor on human comprehension risk |
+| Danger | `danger.py` | Flag structural danger primitives a clear screen can't make safe |
 | Verify | `semverify.py` | Check the screen against real on-chain movements |
 | Prove | `preview.py`, `fetch_tx.py` | Render the screen and build real test vectors |
 | Package | `to_submission.py` | Registry-form output under `dist/`, gated on audit grade |
@@ -92,6 +93,36 @@ approval, which is the failure the paper measures. Run it with `make comprehend
 DESC=…`; NameWrapper's `setApprovalForAll` and the controller's
 `transferOwnership` both surface as CRITICAL comprehension risks that lint and
 audit pass.
+
+## Danger surface
+
+Audit asks whether the screen shows the right fields; comprehend asks whether the
+human understands them. `danger.py` asks the third question: can this function,
+_by construction_, do something a clear screen still can't make safe? A descriptor
+can render a perfectly honest sentence for `execute(address target, bytes data)` —
+"Call {target} with {data}" — and that call can still drain the wallet, because
+the primitive itself is unbounded.
+
+Runtime systems catch this by instrumenting transaction-trace properties
+([arXiv:2408.14621](https://arxiv.org/abs/2408.14621): arbitrary
+`CALL`/`DELEGATECALL`/`SELFDESTRUCT` in the trace). `danger.py` lifts the same
+property set to **static ABI analysis**, so the danger is named before anyone
+signs:
+
+- **CRITICAL** — arbitrary external call (a call-family name, or a target-address
+  + calldata-blob signature), `delegatecall` (foreign code in this contract's
+  context), self-destruct, and upgrade-and-execute.
+- **HIGH** — unbounded delegation (`setApprovalForAll`), authority transfer
+  (ownership / admin / role).
+- **MEDIUM** — value sweep to a caller-supplied address.
+
+Precision is the whole game: a danger scan that cries wolf on `safeTransferFrom`
+is worse than none. The detector distinguishes calldata from data-as-content by
+_parameter name_ (`target`+`data`, not any address-plus-bytes), excludes `to`
+(a recipient, not a callee), and whitelists the standard ERC receiver hooks — so
+the shipped ENS bundle raises **zero** false arbitrary-call flags while a real
+`execute(target,data)` drainer is still caught. `--strict` exits non-zero on any
+CRITICAL.
 
 ## Semantic verification
 
