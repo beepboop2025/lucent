@@ -33,6 +33,7 @@ export ETHERSCAN_API_KEY=...
 | Generate | `erc7730 generate` | Bootstrap a draft descriptor |
 | Lint | `erc7730 lint` | Schema, selectors, device limits, ABI consistency |
 | Audit | `audit.py` | Grade the descriptor on screen trustworthiness |
+| Comprehend | `comprehend.py` | Grade the descriptor on human comprehension risk |
 | Verify | `semverify.py` | Check the screen against real on-chain movements |
 | Prove | `preview.py`, `fetch_tx.py` | Render the screen and build real test vectors |
 | Package | `to_submission.py` | Registry-form output under `dist/`, gated on audit grade |
@@ -57,6 +58,40 @@ the on-device screen would mislead a user, which lint does not:
 It reports a letter grade. `to_submission.py` refuses to package below grade B.
 A raw generated draft of the ENS controller scores F; the hardened descriptors
 score A.
+
+## Comprehension risk
+
+Lint checks that a descriptor is well-formed; `audit.py` checks that the screen
+_shows_ the right fields. Neither asks the question that
+["What I Sign Is Not What I See"](https://arxiv.org/abs/2601.16751) shows is the
+real failure: users mis-_understand_ a technically-correct screen. Its studies
+found people fixate on the amount and recipient and miss scope, delegation, and
+unlimited allowances — and that a bare field list, even a complete one, leaves
+comprehension at chance on the dangerous cases. Its Signature Semantic Decoder
+cut false approvals on unlimited-allowance and phishing transactions by 73% and
+46% by rendering an actor→action→object sentence and a risk tier _with a reason_.
+
+`comprehend.py` brings that to the descriptor. For each signable function it
+emits:
+
+- a **consequence sentence** — who acts on what, plus conditions, built from the
+  ABI and the descriptor's own labels so it renders what the wallet will show:
+  _"You let {Operator} transfer ANY of your tokens in this contract, at any time,
+  until you revoke it."_
+- a **risk tier with the clause that earned it** — the paper's users rejected
+  bare labels and demanded the why. Patterns scored are the ones the study found
+  people miss: operator grants (`setApprovalForAll`), ERC-20 allowances (flagged
+  distinctly from ERC-721 token-id approvals, since `approve(address,uint256)`
+  reads identically but means different things), permits (off-chain, invisible in
+  history), admin/upgrade authority, and raw-hex recipients (the address-poisoning
+  surface).
+
+An unrecognised function with no on-screen intent is reported as an unexplained
+screen (a caution), never silently cleared — an unexplained screen invites blind
+approval, which is the failure the paper measures. Run it with `make comprehend
+DESC=…`; NameWrapper's `setApprovalForAll` and the controller's
+`transferOwnership` both surface as CRITICAL comprehension risks that lint and
+audit pass.
 
 ## Semantic verification
 

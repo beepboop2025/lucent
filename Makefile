@@ -5,8 +5,8 @@ ERC := $(VENV)/bin/erc7730
 # Descriptor most targets act on; override on the command line.
 DESC ?= registry/ens/calldata-ETHRegistrarController.json
 
-.PHONY: setup discover fetch resolve-proxy lint audit semverify preview \
-        submission attest watch watch-init all clean
+.PHONY: setup discover fetch resolve-proxy lint audit comprehend semverify \
+        preview submission attest watch watch-init test all clean
 
 ## setup: create the venv and install requirements
 setup:
@@ -33,6 +33,15 @@ lint:
 ## audit: grade the descriptor on screen trustworthiness
 audit:
 	$(PY) scripts/audit.py $(DESC)
+
+## comprehend: grade the descriptor on human COMPREHENSION risk (consequence
+## sentence + risk tier with a reason, per arXiv:2601.16751)
+comprehend:
+	$(PY) scripts/comprehend.py $(DESC)
+
+## test: run the unit suite
+test:
+	$(PY) -m pytest tests/ -q
 
 ## semverify: check the screen against on-chain movements (needs ETHERSCAN_API_KEY)
 semverify:
