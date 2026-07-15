@@ -42,30 +42,43 @@ import danger  # noqa: E402
 
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_NAME = "lucent"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.1.1"
 
 TOOLS = [
     {
         "name": "check_descriptor",
         "description": (
-            "Pre-sign safety check for an ERC-7730 Clear Signing descriptor. Call "
-            "BEFORE signing or approving a transaction whose descriptor you have. "
-            "Returns a combined read you can GATE ON:\n"
-            "• audit: does the on-device screen show the right fields (grade A-F).\n"
-            "• comprehension: will a human understand what they authorize — a "
-            "plain-language consequence sentence per function ('You let X spend up to "
-            "Y of your tokens…') and a risk tier WITH the reason it earned.\n"
-            "• danger: structural 'loaded gun' primitives a clear screen still can't "
-            "make safe — arbitrary external call, delegatecall, self-destruct, "
-            "upgrade-and-execute, unbounded delegation. CRITICAL danger means do not "
-            "sign blind no matter how benign the sentence reads.\n"
-            "• verdict: overall safe_to_present / review / block, so you can branch."
+            "PURPOSE: Pre-sign safety check for a blockchain transaction described by an "
+            "ERC-7730 Clear Signing descriptor. Combines three lenses into one gate an "
+            "agent can branch on — audit (does the wallet screen show the right fields, "
+            "grade A-F), comprehension (a plain-language consequence sentence + risk "
+            "tier per function), and danger (structural attack primitives). Returns "
+            "{verdict: {gate, reason}, audit, comprehension, danger}.\n"
+            "GUIDELINES: Call this as the PRIMARY safety gate BEFORE signing or "
+            "approving any transaction you hold a descriptor for. Branch on "
+            "verdict.gate: 'block' = do not sign (a CRITICAL danger primitive like "
+            "arbitrary external call / delegatecall / self-destruct / upgrade-and-"
+            "execute — unsafe no matter how benign the on-screen sentence reads); "
+            "'review' = present with a prominent warning (e.g. an operator grant or "
+            "admin authority); 'safe_to_present' = the screen audits and reads clearly. "
+            "Prefer this over trusting a wallet's own rendering, which checks neither "
+            "comprehension nor danger.\n"
+            "LIMITATIONS: Static analysis of the descriptor + its ABI only — it does NOT "
+            "simulate the transaction against live chain state, detect economic exploits "
+            "(price manipulation, MEV), or judge whether the counterparty is honest. It "
+            "assesses whether the action is SAFE TO PRESENT to a signer, not whether the "
+            "signer should want it.\n"
+            "EXAMPLE: check_descriptor({\"descriptor\": {\"context\": {...}, \"display\": "
+            "{\"formats\": {...}}}}) -> {\"verdict\": {\"gate\": \"block\", \"reason\": "
+            "\"1 CRITICAL danger primitive…\"}, …}"
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "descriptor": {"type": "object",
-                               "description": "The ERC-7730 descriptor JSON (inline)."},
+                               "description": "The full ERC-7730 descriptor JSON, inline: an "
+                                              "object with context.contract (abi or "
+                                              "deployments) and display.formats."},
             },
             "required": ["descriptor"],
         },
@@ -73,17 +86,32 @@ TOOLS = [
     {
         "name": "explain_signature",
         "description": (
-            "Explain ONE function of a descriptor the way a wallet should show it "
-            "before signing: an actor->action->object consequence sentence, a risk "
-            "tier, and the specific reason. Use to render a human-readable, "
-            "risk-annotated confirmation for a single pending signature."
+            "PURPOSE: Render ONE function of an ERC-7730 descriptor the way a wallet "
+            "should show it before signing — an actor->action->object consequence "
+            "sentence ('You let {spender} move up to {amount} of your tokens…'), a risk "
+            "tier (CRITICAL/HIGH/MEDIUM/LOW), and the specific reason it earned that "
+            "tier. Returns {found, function, sentence, tier, reason}.\n"
+            "GUIDELINES: Call this to produce a human-readable, risk-annotated "
+            "confirmation string for a single pending signature (e.g. to show a user "
+            "before they approve). Use check_descriptor instead when you want the "
+            "overall gate across ALL functions; use this when you already know the one "
+            "function being signed.\n"
+            "LIMITATIONS: Explains a single function's intent and comprehension risk; it "
+            "does not run the danger-primitive scan (use check_descriptor / "
+            "scan_contract for that) and does not simulate on-chain effects. Returns "
+            "found=false with the available function names if the name is not in the "
+            "descriptor.\n"
+            "EXAMPLE: explain_signature({\"descriptor\": {…}, \"function\": \"approve\"}) "
+            "-> {\"found\": true, \"tier\": \"HIGH\", \"sentence\": \"You let … spend up "
+            "to …\", \"reason\": \"an ERC-20 allowance lets the spender pull tokens…\"}"
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "descriptor": {"type": "object", "description": "The ERC-7730 descriptor JSON."},
                 "function": {"type": "string",
-                             "description": "Function name to explain (e.g. 'approve')."},
+                             "description": "Exact function NAME to explain (not the full "
+                                            "signature), e.g. 'approve' or 'setApprovalForAll'."},
             },
             "required": ["descriptor", "function"],
         },
@@ -91,20 +119,36 @@ TOOLS = [
     {
         "name": "scan_contract",
         "description": (
-            "Danger-scan a deployed contract by address — no descriptor needed. "
-            "Fetches the verified ABI (Sourcify) and flags every signable function "
-            "that is a structural danger primitive (arbitrary call, delegatecall, "
-            "self-destruct, upgrade-and-execute, unbounded delegation, authority "
-            "transfer). Use to assess a contract an agent is about to interact with "
-            "before any transaction is built. Returns matched=false honestly when the "
-            "ABI cannot be fetched."
+            "PURPOSE: Assess a deployed EVM contract for structural danger primitives by "
+            "ADDRESS — no descriptor needed. Fetches the contract's verified ABI from "
+            "Sourcify and flags every signable function that is a 'loaded gun': "
+            "arbitrary external call, delegatecall, self-destruct, upgrade-and-execute, "
+            "unbounded delegation (setApprovalForAll), authority transfer, or value "
+            "sweep. Returns {matched, danger_findings: [{severity, function, primitive, "
+            "why}], critical, worst_severity}.\n"
+            "GUIDELINES: Call this to vet a contract an agent is about to interact with "
+            "BEFORE any transaction is even built — the earliest possible safety check. "
+            "Treat any CRITICAL finding as a strong signal not to interact without human "
+            "review. Use check_descriptor instead once you have a descriptor for a "
+            "specific call.\n"
+            "LIMITATIONS: Flags DANGEROUS CAPABILITIES the contract exposes, not proof "
+            "of malicious intent — many legitimate contracts expose upgrade or admin "
+            "functions. Requires a verified ABI on Sourcify; returns matched=false with "
+            "a reason when the ABI is unavailable or the fetch fails. Does not analyze "
+            "bytecode, proxy implementations beyond the fetched ABI, or runtime "
+            "behavior.\n"
+            "EXAMPLE: scan_contract({\"chain_id\": 1, \"address\": "
+            "\"0x00000000006c3852cbEf3e08E8dF289169EdE581\"})"
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "chain_id": {"type": "integer", "description": "EVM chain id (1 = mainnet).",
+                "chain_id": {"type": "integer",
+                             "description": "EVM chain id: 1=Ethereum mainnet, 8453=Base, "
+                                            "10=Optimism, 42161=Arbitrum, 137=Polygon.",
                              "default": 1},
-                "address": {"type": "string", "description": "0x contract address."},
+                "address": {"type": "string",
+                            "description": "0x-prefixed 40-hex-char contract address."},
             },
             "required": ["address"],
         },
