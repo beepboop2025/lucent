@@ -1,0 +1,10 @@
+{
+  "name": "lucent",
+  "description": "Pre-sign transaction-safety checks for signing agents (ERC-7730)",
+  "version": "0.1.0",
+  "transport": "stdio",
+  "command": ".venv/bin/python",
+  "args": ["scripts/mcp_server.py"],
+  "tools": ["check_descriptor", "explain_signature", "scan_contract"],
+  "notes": "Run from the repo root. Requires the project venv (make setup). scan_contract fetches verified ABIs from Sourcify and needs network access."
+}

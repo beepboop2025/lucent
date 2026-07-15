@@ -11,6 +11,33 @@ covers the full path: find contracts that lack a descriptor, write and harden
 one, check it beyond schema validity, prove it against real transactions, and
 produce an ERC-8176 attestation.
 
+## For signing agents: the MCP server
+
+An AI agent about to sign a transaction faces exactly the question Lucent's
+checks answer — is this call safe, and does the screen a human would see actually
+describe what it does? `scripts/mcp_server.py` exposes that as an MCP server
+(stdlib JSON-RPC over stdio) so an agent can pre-flight a signature:
+
+- **`check_descriptor`** — one combined gate over an ERC-7730 descriptor: the
+  audit grade (screen shows the right fields), the comprehension grade (a
+  plain-language consequence sentence + risk tier per function), and the danger
+  scan (structural primitives a clear screen can't make safe). Returns a
+  `verdict.gate` of `safe_to_present` / `review` / `block` to branch on — a
+  CRITICAL danger primitive blocks regardless of how benign the sentence reads.
+- **`explain_signature`** — the actor→action→object sentence + risk tier +
+  reason for one function, to render a human confirmation before a signature.
+- **`scan_contract`** — danger-scan a deployed contract by address (fetches the
+  verified ABI from Sourcify), so an agent can assess a contract before any
+  transaction is built.
+
+```bash
+make mcp    # or: .venv/bin/python scripts/mcp_server.py
+```
+
+Register it as a stdio MCP server pointing at `scripts/mcp_server.py` from the
+repo root (see `mcp.json`). Same transport shape as the sibling Groundcheck and
+Seiche servers.
+
 ## Install
 
 ```bash

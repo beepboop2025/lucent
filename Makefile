@@ -48,6 +48,10 @@ danger:
 test:
 	$(PY) -m pytest tests/ -q
 
+## mcp: run the pre-sign transaction-safety MCP server (stdio JSON-RPC)
+mcp:
+	$(PY) scripts/mcp_server.py
+
 ## semverify: check the screen against on-chain movements (needs ETHERSCAN_API_KEY;
 ## set SIMULATE=1 to fork-replay unmined `call` vectors, needs anvil+cast+ETH_RPC_URL)
 semverify:
