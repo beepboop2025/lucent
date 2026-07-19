@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install -r requirements.txt pytest
       - run: python -m pytest tests/ -q
       - name: review the shipped ENS descriptors (offline checks)
         run: |
