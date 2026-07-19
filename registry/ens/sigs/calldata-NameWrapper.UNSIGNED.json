@@ -1,0 +1,16 @@
+{
+  "descriptor": "calldata-NameWrapper.json",
+  "descriptorHash": "0x7d3fbfa6863939073f75af7ccc2d17225461f5214a4bf57d777a8f378de60dab",
+  "canonicalization": "RFC-8785 (JCS)",
+  "standard": "ERC-8176 via EAS offchain",
+  "evidence": {
+    "audit": {
+      "grade": "A",
+      "score": 100
+    },
+    "semverify": {
+      "ran": false,
+      "passed": null
+    }
+  }
+}

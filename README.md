@@ -67,6 +67,7 @@ export ETHERSCAN_API_KEY=...
 | Package | `to_submission.py` | Registry-form output under `dist/`, gated on audit grade |
 | Attest | `attest.py` | ERC-8176 attestation over the descriptor hash |
 | Watch | `watch.py` | Monitor merged descriptors for drift |
+| Review | `review.py` | All checks composed into one publishable report |
 
 A `common.py` module holds the shared Sourcify and Etherscan clients and ABI
 utilities.
@@ -188,6 +189,26 @@ implementation. Run it with `make semverify DESC=… SIMULATE=1` on a test file
 whose vectors carry a `call` object instead of a `txHash`. It needs `anvil` +
 `cast` (`foundryup`) and an RPC URL (`ETH_RPC_URL`); without them the call vector
 is skipped with a reason, never silently passed.
+
+## Reviewing a registry PR
+
+The clear-signing governance model asks security reviewers to check descriptor
+PRs "for correctness, clarity, and adversarial edge cases, then publish your
+findings clearly." `review.py` is that role as one command: it composes lint,
+the screen audit, the comprehension grade, the danger scan, and (when test
+vectors and an `ETHERSCAN_API_KEY` are available) semantic verification into a
+single markdown report ready to post on the pull request:
+
+```bash
+make review DESC=path/to/calldata-Contract.json OUT=review.md
+```
+
+The overall verdict is the same gate the MCP server exposes to signing agents
+(`safe_to_present` / `review` / `block`), so a human review and an agent
+pre-flight can never disagree. Checks that cannot run are reported as explicit
+skips with the reason, never silently passed. To review a descriptor from a
+registry PR, fetch its ABI first (`make fetch CHAIN=<id> ADDR=<address>`) so
+the audit runs against the verified on-chain ABI.
 
 ## Post-quantum co-signing
 

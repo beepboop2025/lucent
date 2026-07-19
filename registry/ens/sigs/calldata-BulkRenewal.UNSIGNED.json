@@ -1,0 +1,16 @@
+{
+  "descriptor": "calldata-BulkRenewal.json",
+  "descriptorHash": "0x0badd1b0a535f15efbdd0930b306e4eff798c3696b410e47a89fdf322d8a2523",
+  "canonicalization": "RFC-8785 (JCS)",
+  "standard": "ERC-8176 via EAS offchain",
+  "evidence": {
+    "audit": {
+      "grade": "A",
+      "score": 100
+    },
+    "semverify": {
+      "ran": false,
+      "passed": null
+    }
+  }
+}

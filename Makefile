@@ -5,7 +5,7 @@ ERC := $(VENV)/bin/erc7730
 # Descriptor most targets act on; override on the command line.
 DESC ?= registry/ens/calldata-ETHRegistrarController.json
 
-.PHONY: setup discover fetch resolve-proxy lint audit comprehend danger \
+.PHONY: setup discover fetch resolve-proxy lint audit comprehend danger review \
         semverify preview submission attest watch watch-init test all clean
 
 ## setup: create the venv and install requirements
@@ -43,6 +43,11 @@ comprehend:
 ## selfdestruct, upgrade-and-execute) a clear screen can't make safe (2408.14621)
 danger:
 	$(PY) scripts/danger.py $(DESC)
+
+## review: one publishable markdown review of a descriptor (all checks composed;
+## add OUT=report.md to write a file, needs ETHERSCAN_API_KEY for semverify)
+review:
+	$(PY) scripts/review.py $(DESC) $(if $(OUT),--out $(OUT),)
 
 ## test: run the unit suite
 test:

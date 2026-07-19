@@ -1,0 +1,16 @@
+{
+  "descriptor": "calldata-ETHRegistrarController.json",
+  "descriptorHash": "0x742ff3ba62490e318cd683ad6d0054ce357384936017abc95f27195b9e3a9d07",
+  "canonicalization": "RFC-8785 (JCS)",
+  "standard": "ERC-8176 via EAS offchain",
+  "evidence": {
+    "audit": {
+      "grade": "A",
+      "score": 100
+    },
+    "semverify": {
+      "ran": false,
+      "passed": null
+    }
+  }
+}
