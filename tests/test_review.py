@@ -117,6 +117,22 @@ def test_danger_findings_render_in_markdown(tmp_path):
     assert "no dangerous primitives" not in md.split("## ")[1]
 
 
+def test_report_never_leaks_local_paths(tmp_path):
+    """Reports are posted publicly; a local absolute path in one leaks
+    environment and identity details. Every code path that embeds a path or
+    an error message must reduce it to a basename or relative form."""
+    broken = {"context": {"contract": {"deployments": [
+        {"chainId": 999, "address": "0x" + "22" * 20}]}},
+        "display": {"formats": {}}}
+    rs = [_review(tmp_path, BENIGN, "a.json"),
+          _review(tmp_path, broken, "b.json"),
+          review.review_descriptor(_write(tmp_path, "c.json", BENIGN),
+                                   run_lint=False, run_semverify=True)]
+    md = review.markdown_report(rs)
+    assert str(tmp_path) not in md
+    assert "/private/" not in md and "/Users/" not in md and "/home/" not in md
+
+
 def test_gate_matches_mcp_server(tmp_path):
     import mcp_server
     for desc in (BENIGN, ARBITRARY_CALL, OPERATOR_GRANT):

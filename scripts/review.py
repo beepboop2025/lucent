@@ -48,7 +48,10 @@ def _deployments(desc: dict) -> list[str]:
 
 def _lint(path: Path) -> dict:
     """Run erc7730 lint as a subprocess. ABI cross-validation needs an
-    ETHERSCAN_API_KEY; without one we lint with --skip-abi-validation and say so."""
+    ETHERSCAN_API_KEY; without one we lint with --skip-abi-validation and say so.
+    Runs in the descriptor's own directory on the bare filename: the report is
+    meant to be posted publicly, so no local absolute path may appear in it,
+    and the registry lint expects registry-style names in place."""
     binary = Path(sys.executable).with_name("erc7730")
     if not binary.exists():
         found = shutil.which("erc7730")
@@ -57,8 +60,10 @@ def _lint(path: Path) -> dict:
                     "detail": "erc7730 binary not found next to the interpreter or on PATH"}
         binary = Path(found)
     skip_abi = not os.environ.get("ETHERSCAN_API_KEY")
-    cmd = [str(binary), "lint"] + (["--skip-abi-validation"] if skip_abi else []) + [str(path)]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    cmd = [str(binary), "lint"] + (["--skip-abi-validation"] if skip_abi else []) + [path.name]
+    env = {**os.environ, "COLUMNS": "4000"}  # erc7730 wraps output at terminal width
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120,
+                          cwd=path.resolve().parent, env=env)
     return {
         "status": "pass" if proc.returncode == 0 else "fail",
         "abi_validation": "skipped (no ETHERSCAN_API_KEY)" if skip_abi else "full",
@@ -69,14 +74,16 @@ def _lint(path: Path) -> dict:
 def _semverify(path: Path, tests: Path | None) -> dict:
     tests_path = tests or path.parent / "tests" / (path.stem + ".tests.json")
     if not tests_path.exists():
-        return {"status": "skipped", "reason": f"no test vectors at {tests_path}"}
+        return {"status": "skipped",
+                "reason": f"no test vectors at tests/{tests_path.name}"}
     if not os.environ.get("ETHERSCAN_API_KEY"):
         return {"status": "skipped",
                 "reason": "ETHERSCAN_API_KEY not set; receipts cannot be fetched"}
     try:
         r = semverify.evaluate(path, tests=tests_path)
     except Exception as exc:  # noqa: BLE001 - a broken vector file or network failure is a skip, not a pass
-        return {"status": "skipped", "reason": f"{type(exc).__name__}: {exc}"}
+        reason = f"{type(exc).__name__}: {exc}".replace(str(path.resolve().parent), ".")
+        return {"status": "skipped", "reason": reason}
     r["status"] = "ok"
     return r
 
@@ -88,7 +95,9 @@ def review_descriptor(path: Path, tests: Path | None = None,
     try:
         abi_ok, abi_err = bool(common.descriptor_abi(desc)), ""
     except Exception as exc:  # noqa: BLE001 - unresolvable ABI must surface in the report
-        abi_ok, abi_err = False, f"{type(exc).__name__}: {exc}"
+        abi_ok = False
+        abi_err = f"{type(exc).__name__}: {exc}".replace(
+            str(common.ABI_CACHE), "abi_cache")
     if not abi_ok:
         return {"descriptor": path.stem, "path": str(path),
                 "deployments": _deployments(desc),
