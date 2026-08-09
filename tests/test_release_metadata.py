@@ -91,3 +91,4 @@ def test_railway_deploys_the_hardened_api_image_with_readiness_gating():
     }
     assert railway["deploy"]["healthcheckPath"] == "/ready"
     assert railway["deploy"]["restartPolicyType"] == "ON_FAILURE"
+    assert railway["deploy"]["drainingSeconds"] == 10
