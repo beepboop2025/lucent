@@ -325,7 +325,7 @@ app = FastAPI(
         "signer. It does not certify that executing the call is safe. Every assessment "
         "states its evidence boundary and unsupported guarantees."
     ),
-    version="0.2.0",
+    version="0.2.1",
     docs_url="/docs",
     redoc_url=None,
     openapi_url="/openapi.json",

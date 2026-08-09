@@ -358,7 +358,7 @@ class UrllibFacilitatorClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "lucent-x402/0.2.0",
+            "User-Agent": "lucent-x402/0.2.1",
         }
         if self._bearer_token is not None:
             headers["Authorization"] = f"Bearer {self._bearer_token}"
