@@ -1,0 +1,8 @@
+# Minimal, bounded runtime set for the hosted analysis and access/payment ledgers.
+eth-abi>=5.2,<6
+eth-utils>=6,<7
+eth-hash[pycryptodome]>=0.7,<1
+fastapi>=0.116,<1
+jsonschema>=4.23,<5
+uvicorn>=0.35,<1
+x402>=2.18,<3

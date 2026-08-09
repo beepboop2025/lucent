@@ -96,15 +96,16 @@ def test_raw_hex_recipient_escalates_transfer_to_high():
 
 def test_unknown_function_without_intent_is_flagged_not_cleared():
     c = _classify(_fn("frobnicate", [_in("x", "uint256")]), fmt=None)
-    assert c["tier"] == "MEDIUM"
+    assert c["tier"] == "HIGH"
     assert "unexplained" in c["reason"] or "unclassified" in c["reason"]
 
 
-def test_unknown_function_with_intent_is_low_but_named():
+def test_unknown_function_with_untrusted_intent_still_requires_review():
     c = _classify(_fn("frobnicate", [_in("x", "uint256")]),
                   fmt={"intent": "Do the thing"})
-    assert c["tier"] == "LOW"
-    assert c["sentence"] == "Do the thing"
+    assert c["tier"] == "HIGH"
+    assert c["sentence"] == "You call frobnicate; Lucent has not classified its consequence."
+    assert "Do the thing" not in c["sentence"]
 
 
 # ── aggregate + real descriptors ────────────────────────────────────────────────

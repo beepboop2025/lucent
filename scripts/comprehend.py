@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 import common
@@ -89,11 +88,13 @@ def classify(fn: dict, fmt: dict | None) -> dict:
     """
     name = _name(fn)
     lname = name.lower()
-    labels = _labels(fmt or {})
     payable = fn.get("stateMutability") == "payable"
 
     def lbl(leaf: str, default: str) -> str:
-        return "{" + labels.get(leaf, default) + "}"
+        # ABI identifiers are schema-validated before hosted/MCP analysis.
+        # Descriptor-authored labels and intents are never copied into an
+        # agent-facing consequence sentence.
+        return "{" + (leaf or default) + "}"
 
     # ── delegation / operator grants: the highest-consequence, most-missed ──
     if lname == "setapprovalforall" or ("approval" in lname and _has_input(fn, "bool")):
@@ -182,13 +183,13 @@ def classify(fn: dict, fmt: dict | None) -> dict:
     # ── everything else: name it, don't wave it through ─────────────────────
     if fmt and (fmt.get("intent") or fmt.get("interpolatedIntent")):
         return {
-            "tier": "LOW",
-            "reason": "no high-consequence pattern detected; the descriptor states an "
-                      "intent, so the action is at least named on-screen",
-            "sentence": (fmt.get("interpolatedIntent") or fmt.get("intent")),
+            "tier": "HIGH",
+            "reason": "Lucent has not classified this function's consequence; "
+                      "caller-authored intent cannot substitute for policy semantics",
+            "sentence": f"You call {name}; Lucent has not classified its consequence.",
         }
     return {
-        "tier": "MEDIUM",
+        "tier": "HIGH",
         "reason": "unclassified consequence AND no intent on the screen — the human "
                   "has nothing to understand the action from (an unexplained screen "
                   "is worse than none: it invites blind approval)",
@@ -205,7 +206,7 @@ def _recipient_shown_raw(fn: dict, fmt: dict | None) -> bool:
     for i in fn.get("inputs", []):
         if common.canonical_type(i).startswith("address"):
             f = fields.get(f'#.{i["name"]}')
-            if f is None or (f.get("format") == "raw" and f.get("visible") != "never"):
+            if f is None or f.get("visible") == "never" or f.get("format") != "addressName":
                 return True
     return False
 

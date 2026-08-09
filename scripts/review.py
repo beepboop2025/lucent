@@ -107,15 +107,17 @@ def review_descriptor(path: Path, tests: Path | None = None,
     audit_r = audit.audit(desc)
     comp_r = comprehend.comprehend(desc)
     danger_r = danger.scan(desc)
+    shared = mcp_server.check_descriptor({"descriptor": desc})
     return {
         "descriptor": path.stem,
         "path": str(path),
         "deployments": _deployments(desc),
-        "verdict": mcp_server._overall_verdict(audit_r, danger_r, comp_r),
+        "verdict": shared["verdict"],
         "lint": _lint(path) if run_lint else {"status": "skipped", "reason": "--no-lint"},
         "audit": audit_r,
         "comprehension": comp_r,
         "danger": danger_r,
+        "presentation_binding": shared["presentation_binding"],
         "semverify": (_semverify(path, tests) if run_semverify
                       else {"status": "skipped", "reason": "--no-semverify"}),
     }
@@ -228,6 +230,11 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="emit raw JSON, not markdown")
     ap.add_argument("--no-lint", action="store_true")
     ap.add_argument("--no-semverify", action="store_true")
+    ap.add_argument(
+        "--report-only",
+        action="store_true",
+        help="emit findings without making block verdicts fail the command",
+    )
     args = ap.parse_args()
 
     if args.tests and len(args.descriptors) > 1:
@@ -245,6 +252,8 @@ def main() -> int:
         print(f"wrote {args.out}")
     else:
         print(out)
+    if args.report_only:
+        return 0
     return 1 if any("error" in r or r["verdict"]["gate"] == "block" for r in results) else 0
 
 
