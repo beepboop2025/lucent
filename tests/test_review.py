@@ -53,7 +53,9 @@ OPERATOR_GRANT = _desc(
     {"setApprovalForAll(address,bool)": {
         "intent": "Set operator",
         "fields": [{"path": "#.operator", "label": "Operator",
-                    "format": "addressName"}]}},
+                    "format": "addressName"},
+                   {"path": "#.approved", "label": "Approved",
+                    "format": "raw"}]}},
 )
 
 

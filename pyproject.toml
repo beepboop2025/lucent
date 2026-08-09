@@ -1,16 +1,31 @@
+[build-system]
+requires = ["setuptools>=77,<81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "lucent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Author, verify, and attest ERC-7730 Clear Signing descriptors"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 dependencies = [
-    "erc7730",
-    "eth-abi",
-    "eth-account",
-    "eth-utils",
-    "rfc8785",
-    "pqcrypto",
+    "erc7730>=1.0.8,<2",
+    "eth-abi>=5.2,<6",
+    "eth-account>=0.13.7,<1",
+    "eth-utils>=6,<7",
+    "rfc8785>=0.1.4,<0.2",
+    "pqcrypto>=0.4,<0.5",
+    "fastapi>=0.116,<1",
+    "jsonschema>=4.23,<5",
+    "uvicorn>=0.35,<1",
+    "x402>=2.18,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx2>=2.10,<3",
+    "pytest>=9,<10",
+    "ruff>=0.16,<0.17",
 ]
 
 [tool.ruff]
@@ -19,3 +34,11 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.setuptools]
+packages = ["lucent"]
+py-modules = ["audit", "common", "comprehend", "danger"]
+
+[tool.setuptools.package-dir]
+"" = "scripts"
+lucent = "lucent"

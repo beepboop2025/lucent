@@ -57,16 +57,18 @@ def _canonical_key(key: str) -> str:
 
     def canon_component(c: str) -> str:
         if c.startswith("("):
-            depth, i = 0, 0
+            depth = 0
             for i, ch in enumerate(c):
                 depth += ch == "("
                 depth -= ch == ")"
                 if depth == 0:
-                    break
-            inner = "(" + ",".join(canon_component(x) for x in _split_top(c[1:i])) + ")"
-            rest = c[i + 1:]
-            suffix = rest.split()[0] if rest[:1] == "[" else ""
-            return inner + suffix
+                    inner = "(" + ",".join(
+                        canon_component(x) for x in _split_top(c[1:i])
+                    ) + ")"
+                    rest = c[i + 1:]
+                    suffix = rest.split()[0] if rest[:1] == "[" else ""
+                    return inner + suffix
+            return c
         return c.split()[0]
 
     return name + "(" + ",".join(canon_component(c) for c in _split_top(params)) + ")"
@@ -92,16 +94,19 @@ def audit(desc: dict) -> dict:
     for key in formats:
         canon = _canonical_key(key)
         if key not in signable and canon not in signable:
-            flag("LOW", key, "format entry matches no signable function in the ABI (orphan)")
+            flag(
+                "LOW",
+                "unmatched-format",
+                "orphan format entry matches no signable function in the ABI",
+            )
 
     for sig, fn in signable.items():
         fmt = formats.get(sig)
         if fmt is None:
             if sig in noncanonical:
                 flag("HIGH", sig,
-                     f"format entry keyed non-canonically as '{noncanonical[sig]}' - "
-                     "wallets match the canonical signature, so this entry never "
-                     "renders (blind-signs as submitted)")
+                     "format entry is keyed non-canonically; wallets match the canonical "
+                     "signature, so this entry never renders")
             else:
                 flag("HIGH", sig, "signable function has no descriptor entry (blind-signs)")
             continue
@@ -135,7 +140,7 @@ def audit(desc: dict) -> dict:
                 if not p.get("token") and not p.get("tokenPath"):
                     flag("CRITICAL", sig, f"tokenAmount '{leaf}' has no token/tokenPath")
             if f.get("label") and len(f["label"]) > LABEL_MAX:
-                flag("MEDIUM", sig, f"label '{f['label']}' exceeds {LABEL_MAX} chars")
+                flag("MEDIUM", sig, f"field label exceeds {LABEL_MAX} chars")
 
         for key in ("intent", "interpolatedIntent"):
             if fmt.get(key) and len(fmt[key]) > INTENT_MAX:

@@ -11,21 +11,78 @@ covers the full path: find contracts that lack a descriptor, write and harden
 one, check it beyond schema validity, prove it against real transactions, and
 produce an ERC-8176 attestation.
 
+## Hosted preflight API
+
+Lucent's primary product surface is a call-scoped HTTP API with a stateless
+analysis core and bounded access/payment ledgers. It binds
+one unsigned EVM call (including sender) to one descriptor deployment, resolves
+the exact calldata selector, decodes the arguments, and runs the audit,
+comprehension, and danger checks only for that selected function:
+
+```bash
+make setup
+make api
+curl http://127.0.0.1:8780/health
+open http://127.0.0.1:8780/docs
+```
+
+`POST /v1/preflight` returns call and assessment fingerprints with a
+`safe_to_present`, `review`, or `block` decision. A blocked call is a successful
+assessment and therefore returns HTTP 200; malformed, unbound, ambiguous, or
+undecodable input returns a stable `application/problem+json` error.
+
+The words are intentional: **`safe_to_present` never means safe to execute**.
+Version 1 uses a deliberately narrow scalar presentation profile. Local mode
+can analyze caller-supplied ABI data; protected deployments can instead require
+a finalized runtime-bytecode match and Sourcify ABI before a verdict is
+returned. Hosted V1 rejects proxy-backed deployments until dispatch and
+upgrade-state semantics can be proven, including custom delegatecall
+dispatchers without EIP-1967 slots. Neither mode simulates state, detects
+economic exploits, or judges the counterparty. Those limits ride in every
+response. Full contract and deployment modes:
+[docs/HOSTED-API.md](docs/HOSTED-API.md).
+
+### Protected access and Base-USDC payments
+
+The API and container start disabled. `make api` opts into loopback-only local
+development (`open`, verified source `off`, x402 `off`). Production modes are
+configured explicitly at startup and fail closed when their dependencies are
+incoherent:
+
+- `api_key` — hashed tenant keys, per-tenant token buckets, and five-minute
+  idempotent result replay;
+- `x402` — official x402 v2 challenge/signature/receipt headers and exact USDC
+  settlement on Base mainnet;
+- `api_key_or_x402` — subscription/quota access for integrations, with USDC
+  pay-per-request fallback.
+
+Any mode that accepts x402 requires verified-source mode. Payment proofs are
+verified before Lucent uses RPC/Sourcify capacity, settled only after a complete
+result exists. Exact retries replay the retained receipt, while a separate
+authorization ledger prevents the same signed EIP-3009 transfer from being
+rewrapped under a new idempotency key. Paid outcomes are not evicted while
+unexpired, and authorizations must expire within the server-owned five-minute
+window. The container runs one worker by default; scale-out requires a shared
+quota/idempotency/authorization-claim backend.
+
 ## For signing agents: the MCP server
 
 An AI agent about to sign a transaction faces exactly the question Lucent's
-checks answer — is this call safe, and does the screen a human would see actually
-describe what it does? `scripts/mcp_server.py` exposes that as an MCP server
-(stdlib JSON-RPC over stdio) so an agent can pre-flight a signature:
+checks answer — is this call clear enough to present, and does the screen a
+human would see actually describe what it does? `scripts/mcp_server.py` exposes
+that as an MCP server (JSON-RPC over stdio) so an agent can pre-flight a signature:
 
-- **`check_descriptor`** — one combined gate over an ERC-7730 descriptor: the
-  audit grade (screen shows the right fields), the comprehension grade (a
+- **`preflight_transaction`** — the primary transaction-time gate. It binds
+  `chain_id`, `from`, `to`, `data`, and `value` to a matching descriptor
+  deployment, decodes one unique selector, analyzes only that function, and
+  fingerprints the complete request.
+- **`check_descriptor`** — an authoring-time report over an ERC-7730 descriptor:
+  the audit grade (screen shows the right fields), the comprehension grade (a
   plain-language consequence sentence + risk tier per function), and the danger
-  scan (structural primitives a clear screen can't make safe). Returns a
-  `verdict.gate` of `safe_to_present` / `review` / `block` to branch on — a
-  CRITICAL danger primitive blocks regardless of how benign the sentence reads.
-- **`explain_signature`** — the actor→action→object sentence + risk tier +
-  reason for one function, to render a human confirmation before a signature.
+  scan (structural primitives a clear screen can't make safe). It is not bound
+  to a pending call and must never authorize one.
+- **`explain_signature`** — an unbound actor→action→object sentence + risk tier
+  for descriptor-authoring and UX-copy review, never transaction approval.
 - **`scan_contract`** — danger-scan a deployed contract by address (fetches the
   verified ABI from Sourcify), so an agent can assess a contract before any
   transaction is built.
@@ -37,6 +94,10 @@ make mcp    # or: .venv/bin/python scripts/mcp_server.py
 Register it as a stdio MCP server pointing at `scripts/mcp_server.py` from the
 repo root (see `mcp.json`). Same transport shape as the sibling Groundcheck and
 Seiche servers.
+
+For every pending call, use `preflight_transaction`. Its model-facing output
+hashes arbitrary string calldata, and its server-owned consequence sentence
+never incorporates descriptor-authored prose.
 
 ## Install
 
@@ -70,7 +131,8 @@ export ETHERSCAN_API_KEY=...
 | Review | `review.py` | All checks composed into one publishable report |
 
 A `common.py` module holds the shared Sourcify and Etherscan clients and ABI
-utilities.
+utilities. `lucent/preflight.py` is the shared call-scoped decision core used by
+both HTTP and MCP, so transports cannot drift on verdict policy.
 
 ## Audit
 
@@ -203,12 +265,14 @@ single markdown report ready to post on the pull request:
 make review DESC=path/to/calldata-Contract.json OUT=review.md
 ```
 
-The overall verdict is the same gate the MCP server exposes to signing agents
-(`safe_to_present` / `review` / `block`), so a human review and an agent
-pre-flight can never disagree. Checks that cannot run are reported as explicit
-skips with the reason, never silently passed. To review a descriptor from a
-registry PR, fetch its ABI first (`make fetch CHAIN=<id> ADDR=<address>`) so
-the audit runs against the verified on-chain ABI.
+`review.py` and `check_descriptor` are authoring reports over the full
+descriptor. They intentionally do not replace the call-scoped
+`preflight_transaction` gate: only preflight binds sender, destination,
+calldata, value, and one selected function. Checks that cannot run are reported
+as explicit skips with the reason, never silently passed. To review a descriptor
+from a registry PR, fetch its ABI first
+(`make fetch CHAIN=<id> ADDR=<address>`) so the audit runs against the verified
+on-chain ABI.
 
 ## Post-quantum co-signing
 
@@ -230,6 +294,11 @@ env vars or a gitignored `.attester-keys/` directory, written owner-only. No
 cryptographically-relevant quantum computer exists yet and there is no standard
 for post-quantum attestations, so this is forward positioning, not a current
 requirement.
+
+Attestation and fork replay are offline operator tools. They are deliberately
+absent from the hosted API container: the current scripts accept RPC/process or
+key-bearing inputs that belong in isolated workers with strict egress, resource,
+and signing-policy controls.
 
 ## Current state
 

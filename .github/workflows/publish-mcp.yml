@@ -1,49 +1,159 @@
-name: publish-mcp
+name: publish-release
 
-# Build the Lucent MCP server image, push it to GHCR, and publish the listing to
-# the official MCP registry (io.github.beepboop2025/lucent). Fully autonomous:
+# Build the Lucent API and MCP images, push them to GHCR, and publish the MCP
+# listing to the official registry (io.github.beepboop2025/lucent).
 # GHCR push uses the workflow's own GITHUB_TOKEN, and the registry publish uses
 # GitHub OIDC — no external logins or secrets.
 #
 # One-time manual step after the FIRST run: make the GHCR package public
-# (GitHub → your packages → lucent-mcp → Package settings → Change visibility →
-# Public), otherwise MCP clients cannot pull the image. GHCR packages are
+# (GitHub → your packages → each Lucent package → Package settings → Change
+# visibility → Public), otherwise clients cannot pull the images. GHCR packages are
 # private on first push and visibility cannot be flipped by GITHUB_TOKEN.
 
 on:
-  workflow_dispatch:
   release:
     types: [published]
 
 permissions:
   contents: read
-  packages: write        # push the image to GHCR
-  id-token: write        # mcp-publisher proves the io.github.* namespace via OIDC
 
 env:
-  IMAGE: ghcr.io/beepboop2025/lucent-mcp:v0.1.1
+  VERSION: 0.2.0
+  MCP_IMAGE: ghcr.io/beepboop2025/lucent-mcp:v0.2.0
+  API_IMAGE: ghcr.io/beepboop2025/lucent-api:v0.2.0
+  MCP_PUBLISHER_VERSION: v1.7.9
+  MCP_PUBLISHER_LINUX_AMD64_SHA256: ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
 
 jobs:
-  publish:
+  publish-images:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bind the release tag and every package manifest
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          test "$RELEASE_TAG" = "v$VERSION"
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import tomllib
+
+          expected = os.environ["VERSION"]
+          root = pathlib.Path(".")
+          pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+          server = json.loads((root / "server.json").read_text())
+          mcp = json.loads((root / "mcp.json").read_text())
+          sources = {
+              "pyproject.toml": pyproject["project"]["version"],
+              "server.json": server["version"],
+              "server package": server["packages"][0]["version"],
+              "mcp.json": mcp["version"],
+          }
+          for path, pattern in (
+              ("lucent/api.py", r'version="([^"]+)"'),
+              ("scripts/mcp_server.py", r'SERVER_VERSION = "([^"]+)"'),
+          ):
+              match = re.search(pattern, (root / path).read_text())
+              sources[path] = match.group(1) if match else None
+          mismatches = {name: value for name, value in sources.items() if value != expected}
+          if mismatches:
+              raise SystemExit(f"release version mismatch: {mismatches}")
+          expected_image = f"ghcr.io/beepboop2025/lucent-mcp:v{expected}"
+          if server["packages"][0]["identifier"] != expected_image:
+              raise SystemExit("server.json image tag does not match the release version")
+          PY
+
+      - name: Install and test the exact source before publishing
+        run: |
+          python -m pip install -r requirements.txt
+          python -m ruff check lucent scripts/audit.py scripts/common.py \
+            scripts/comprehend.py scripts/mcp_server.py scripts/review.py \
+            tests/test_api.py tests/test_preflight.py tests/test_mcp_server.py \
+            tests/test_mcp_transport.py tests/test_release_metadata.py \
+            tests/test_common_hardening.py tests/test_comprehend.py \
+            tests/test_review.py tests/test_access.py tests/test_hosted.py \
+            tests/test_payments.py tests/test_verified_source.py
+          python -m pytest tests/ -q
+
+      - name: Build and import the exact Python distribution
+        run: |
+          wheel_dir="$(mktemp -d)"
+          install_dir="$(mktemp -d)"
+          python -m pip wheel . --no-deps --wheel-dir "$wheel_dir"
+          python -m pip install --no-deps --target "$install_dir" "$wheel_dir"/*.whl
+          (cd "$install_dir" && PYTHONPATH="$install_dir" python -c \
+            'from pathlib import Path; import audit, common, comprehend, danger, lucent; from lucent import api, preflight; root = Path("'"$install_dir"'").resolve(); assert all(Path(module.__file__).resolve().is_relative_to(root) for module in (audit, common, comprehend, danger, lucent, preflight, api))')
+
+      - name: Generate strict-profile reports for shipped ENS descriptors
+        run: |
+          python scripts/review.py --no-lint --no-semverify --report-only \
+            registry/ens/calldata-ETHRegistrarController.json \
+            registry/ens/calldata-NameWrapper.json \
+            registry/ens/calldata-BulkRenewal.json > /dev/null
 
       - name: Log in to GHCR
         run: echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build and push the MCP server image
+      - name: Build, smoke-test, and push the MCP server image
         run: |
-          docker build -f Dockerfile.mcp -t "$IMAGE" .
-          docker push "$IMAGE"
+          docker build --pull -f Dockerfile.mcp -t "$MCP_IMAGE" .
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | docker run --rm -i --read-only "$MCP_IMAGE" \
+            | grep -q 'preflight_transaction'
+          docker push "$MCP_IMAGE"
 
-      - name: Install mcp-publisher
+      - name: Build, smoke-test, and push the hosted API image
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
-            | tar xz mcp-publisher && sudo mv mcp-publisher /usr/local/bin/
+          docker build --pull -f Dockerfile.api -t "$API_IMAGE" .
+          cid="$(docker run -d --read-only -e LUCENT_ACCESS_MODE=open \
+            -p 8780:8780 "$API_IMAGE")"
+          trap 'docker rm -f "$cid"' EXIT
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8780/ready | grep -q '"status":"ready"'; then
+              docker push "$API_IMAGE"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs "$cid"
+          exit 1
+
+  publish-registry:
+    needs: publish-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the pinned mcp-publisher
+        run: |
+          archive="$RUNNER_TEMP/mcp-publisher_linux_amd64.tar.gz"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            "https://github.com/modelcontextprotocol/registry/releases/download/$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz" \
+            --output "$archive"
+          echo "$MCP_PUBLISHER_LINUX_AMD64_SHA256  $archive" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" mcp-publisher
+          sudo install -m 0755 "$RUNNER_TEMP/mcp-publisher" /usr/local/bin/mcp-publisher
+          mcp-publisher --help > /dev/null
 
       - name: Publish the listing to the MCP registry
         run: |
+          mcp-publisher validate
           mcp-publisher login github-oidc
           mcp-publisher publish

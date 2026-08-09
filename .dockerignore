@@ -1,0 +1,17 @@
+# Deny by default so credentials, local keys, VCS data, caches, and the 100+ MB
+# virtualenv never enter a local or remote Docker build context.
+**
+!.dockerignore
+!Dockerfile.api
+!Dockerfile.mcp
+!requirements-api.txt
+!lucent/
+!lucent/**
+!scripts/
+!scripts/common.py
+!scripts/audit.py
+!scripts/comprehend.py
+!scripts/danger.py
+!scripts/mcp_server.py
+**/__pycache__/
+**/*.py[co]

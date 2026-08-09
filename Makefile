@@ -6,7 +6,7 @@ ERC := $(VENV)/bin/erc7730
 DESC ?= registry/ens/calldata-ETHRegistrarController.json
 
 .PHONY: setup discover fetch resolve-proxy lint audit comprehend danger review \
-        semverify preview submission attest watch watch-init test all clean
+        semverify preview submission attest watch watch-init test api all clean
 
 ## setup: create the venv and install requirements
 setup:
@@ -56,6 +56,10 @@ test:
 ## mcp: run the pre-sign transaction-safety MCP server (stdio JSON-RPC)
 mcp:
 	$(PY) scripts/mcp_server.py
+
+## api: run the hosted call-scoped preflight API locally
+api:
+	LUCENT_ACCESS_MODE=open $(PY) -m uvicorn lucent.api:app --host 127.0.0.1 --port 8780
 
 ## semverify: check the screen against on-chain movements (needs ETHERSCAN_API_KEY;
 ## set SIMULATE=1 to fork-replay unmined `call` vectors, needs anvil+cast+ETH_RPC_URL)

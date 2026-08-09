@@ -1,8 +1,6 @@
 # Lucent MCP server — pre-sign transaction-safety checks over stdio.
-# Deliberately lean: the server's only non-stdlib dependency is eth-utils
-# (keccak, via common.py); everything else is Python stdlib. This keeps the
-# image tiny and avoids compiling the pipeline's heavier crypto deps, which the
-# MCP tools do not use.
+# Deliberately lean: the server installs only ABI decoding and hashing support,
+# not the pipeline's heavier signing and post-quantum dependencies.
 #
 # The label proves namespace ownership to the MCP registry (mcp-publisher
 # validates the OCI image carries it) — it MUST match server.json `name`.
@@ -10,14 +8,23 @@ FROM python:3.12-slim
 
 LABEL io.modelcontextprotocol.server.name="io.github.beepboop2025/lucent"
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-RUN pip install --no-cache-dir "eth-utils>=2" "eth-hash[pycryptodome]>=0.5"
+RUN pip install --no-cache-dir "eth-abi>=5.2,<6" "eth-utils>=6,<7" \
+    "eth-hash[pycryptodome]>=0.7,<1" \
+    && addgroup --system --gid 10001 lucent \
+    && adduser --system --uid 10001 --ingroup lucent --no-create-home lucent
 
 # Only the analysis + server modules are needed at runtime.
 COPY scripts/common.py scripts/audit.py scripts/comprehend.py \
      scripts/danger.py scripts/mcp_server.py ./scripts/
-# scan_contract writes fetched ABIs here (common.ABI_CACHE = <repo>/abi_cache).
+COPY lucent ./lucent
+# Keep the conventional cache path present for local descriptor tooling. The
+# runtime is read-only compatible and never writes fetched data here.
 RUN mkdir -p abi_cache
 
+USER 10001:10001
 ENTRYPOINT ["python", "scripts/mcp_server.py"]

@@ -19,11 +19,54 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: python -m pip install -r requirements.txt pytest
+      - run: python -m pip install -r requirements.txt
+      - name: Lint hosted-service and transport boundaries
+        run: >-
+          python -m ruff check lucent scripts/audit.py scripts/common.py
+          scripts/comprehend.py scripts/mcp_server.py scripts/review.py
+          tests/test_api.py tests/test_preflight.py tests/test_mcp_server.py
+          tests/test_mcp_transport.py tests/test_release_metadata.py
+          tests/test_common_hardening.py tests/test_comprehend.py tests/test_review.py
+          tests/test_access.py tests/test_hosted.py tests/test_payments.py
+          tests/test_verified_source.py
       - run: python -m pytest tests/ -q
-      - name: review the shipped ENS descriptors (offline checks)
+      - name: Build and import the Python distribution
         run: |
-          python scripts/review.py --no-lint --no-semverify \
+          wheel_dir="$(mktemp -d)"
+          install_dir="$(mktemp -d)"
+          python -m pip wheel . --no-deps --wheel-dir "$wheel_dir"
+          python -m pip install --no-deps --target "$install_dir" "$wheel_dir"/*.whl
+          (cd "$install_dir" && PYTHONPATH="$install_dir" python -c \
+            'from pathlib import Path; import audit, common, comprehend, danger, lucent; from lucent import api, preflight; root = Path("'"$install_dir"'").resolve(); assert all(Path(module.__file__).resolve().is_relative_to(root) for module in (audit, common, comprehend, danger, lucent, preflight, api))')
+      - name: Generate strict-profile reports for shipped ENS descriptors
+        run: |
+          python scripts/review.py --no-lint --no-semverify --report-only \
             registry/ens/calldata-ETHRegistrarController.json \
             registry/ens/calldata-NameWrapper.json \
             registry/ens/calldata-BulkRenewal.json > /dev/null
+
+  containers:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and smoke-test MCP image
+        run: |
+          docker build -f Dockerfile.mcp -t lucent-mcp:test .
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+            | docker run --rm -i --read-only lucent-mcp:test \
+            | grep -q 'preflight_transaction'
+      - name: Build and smoke-test API image
+        run: |
+          docker build -f Dockerfile.api -t lucent-api:test .
+          cid="$(docker run -d --read-only -e LUCENT_ACCESS_MODE=open \
+            -p 8780:8780 lucent-api:test)"
+          trap 'docker rm -f "$cid"' EXIT
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8780/ready | grep -q '"status":"ready"'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs "$cid"
+          exit 1
