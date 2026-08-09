@@ -25,13 +25,13 @@ def test_versions_and_tools_are_in_sync():
         server["version"],
         mcp_server.SERVER_VERSION,
     }
-    assert versions == {"0.2.0"}
+    assert versions == {"0.2.1"}
 
     implemented = set(mcp_server.HANDLERS)
     advertised = set(mcp["tools"])
     assert implemented == advertised
-    assert server["packages"][0]["identifier"].endswith(":v0.2.0")
-    assert server["packages"][0]["version"] == "0.2.0"
+    assert server["packages"][0]["identifier"].endswith(":v0.2.1")
+    assert "version" not in server["packages"][0]
 
     setuptools = project["tool"]["setuptools"]
     assert setuptools["packages"] == ["lucent"]
@@ -45,7 +45,7 @@ def test_release_workflow_is_version_bound_and_supply_chain_pinned():
     assert "sha256sum --check --strict" in workflow
     assert "MCP_PUBLISHER_VERSION: v1.7.9" in workflow
     assert re.search(r"MCP_PUBLISHER_LINUX_AMD64_SHA256: [0-9a-f]{64}", workflow)
-    assert "ghcr.io/beepboop2025/lucent-api:v0.2.0" in workflow
+    assert "ghcr.io/beepboop2025/lucent-api:v0.2.1" in workflow
     assert 'test "$RELEASE_TAG" = "v$VERSION"' in workflow
     assert "python -m ruff check lucent" in workflow
     assert "python -m pip wheel . --no-deps" in workflow

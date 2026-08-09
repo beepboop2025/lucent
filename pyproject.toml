@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lucent"
-version = "0.2.0"
+version = "0.2.1"
 description = "Author, verify, and attest ERC-7730 Clear Signing descriptors"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }

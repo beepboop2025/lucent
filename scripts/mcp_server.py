@@ -44,7 +44,7 @@ from lucent import preflight  # noqa: E402
 
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_NAME = "lucent"
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = "0.2.1"
 MAX_MCP_LINE_BYTES = 1024 * 1024
 
 TOOLS = [

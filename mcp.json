@@ -1,7 +1,7 @@
 {
   "name": "lucent",
   "description": "Call-scoped Clear Signing presentation checks for EVM signing agents",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "transport": "stdio",
   "command": ".venv/bin/python",
   "args": ["scripts/mcp_server.py"],

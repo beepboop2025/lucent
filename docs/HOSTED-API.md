@@ -342,11 +342,11 @@ Clients should branch on `code`, never on human text.
 Build the non-root, read-only-compatible container:
 
 ```bash
-docker build -f Dockerfile.api -t lucent-api:0.2.0 .
+docker build -f Dockerfile.api -t lucent-api:0.2.1 .
 docker run --rm --read-only -p 8780:8780 \
   -e LUCENT_ACCESS_MODE=api_key \
   -e LUCENT_TENANTS_JSON='[...]' \
-  lucent-api:0.2.0
+  lucent-api:0.2.1
 ```
 
 The shipped image intentionally exposes only `/v1/preflight`, health/readiness,
