@@ -763,7 +763,7 @@ def index(request: Request) -> dict:
     }
 
 
-@app.get("/health", tags=["operations"])
+@app.get("/health", tags=["operations"], response_model=None)
 def health(request: Request) -> dict | JSONResponse:
     identity, identity_valid = _runtime_identity()
     payload = {
@@ -804,7 +804,7 @@ def _runtime_identity() -> tuple[dict[str, str | None], bool]:
     }, False
 
 
-@app.get("/ready", tags=["operations"])
+@app.get("/ready", tags=["operations"], response_model=None)
 def ready(request: Request) -> dict | JSONResponse:
     identity, identity_valid = _runtime_identity()
     if not identity_valid:
