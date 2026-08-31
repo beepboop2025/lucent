@@ -356,6 +356,13 @@ return `503 SERVICE_NOT_CONFIGURED`. `/ready` otherwise reports the active
 access/source modes and explicitly names the process-local state backend. Never
 place attester keys in this container.
 
+Fleet-managed Railway releases inject `FLEET_SOURCE_COMMIT` and
+`FLEET_RELEASE_ID`. Both `/health` and `/ready` expose those full lowercase
+identities with `identity_status: verified`. A Railway runtime returns 503 and
+redacts the values when either identity is missing or malformed. Local
+development remains available with `identity_status: local` and null identity
+fields.
+
 ## Deferred assurance layers
 
 These require separate trust and resource boundaries:

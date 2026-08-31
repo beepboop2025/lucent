@@ -248,6 +248,9 @@ def test_health_and_request_headers():
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["policy_version"] == preflight.POLICY_VERSION
+    assert response.json()["identity_status"] == "local"
+    assert response.json()["source_commit"] is None
+    assert response.json()["release_id"] is None
     assert response.headers["x-request-id"] == "wallet-42"
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-content-type-options"] == "nosniff"
@@ -255,6 +258,34 @@ def test_health_and_request_headers():
     assert readiness["access_mode"] == "open"
     assert readiness["verified_source_mode"] == "off"
     assert readiness["state_backend"] == "process_local"
+    assert readiness["identity_status"] == "local"
+
+
+def test_railway_health_and_readiness_require_exact_fleet_identity(monkeypatch):
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
+    monkeypatch.delenv("FLEET_SOURCE_COMMIT", raising=False)
+    monkeypatch.delenv("FLEET_RELEASE_ID", raising=False)
+
+    missing = CLIENT.get("/health")
+    assert missing.status_code == 503
+    assert missing.json()["identity_status"] == "invalid"
+    assert missing.json()["source_commit"] is None
+    assert missing.json()["release_id"] is None
+
+    monkeypatch.setenv("FLEET_SOURCE_COMMIT", "a" * 40 + "\n")
+    monkeypatch.setenv("FLEET_RELEASE_ID", "b" * 64)
+    assert CLIENT.get("/ready").status_code == 503
+
+    source_commit = "a" * 40
+    release_id = "b" * 64
+    monkeypatch.setenv("FLEET_SOURCE_COMMIT", source_commit)
+    monkeypatch.setenv("FLEET_RELEASE_ID", release_id)
+    for path in ("/health", "/ready"):
+        response = CLIENT.get(path)
+        assert response.status_code == 200
+        assert response.json()["identity_status"] == "verified"
+        assert response.json()["source_commit"] == source_commit
+        assert response.json()["release_id"] == release_id
 
 
 def test_default_runtime_is_closed_until_access_is_explicitly_configured(monkeypatch):

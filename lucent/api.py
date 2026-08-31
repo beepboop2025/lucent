@@ -38,6 +38,8 @@ if not LOGGER.handlers:
 
 MAX_BODY_BYTES = preflight.MAX_TRANSPORT_BODY_BYTES
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,96}$")
+FULL_GIT_OBJECT_ID_RE = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?\Z")
+FLEET_RELEASE_ID_RE = re.compile(r"[0-9a-f]{64}\Z")
 _CACHED_PAYMENT_PROOF_HEADER = "Lucent-Internal-Payment-Proof"
 
 
@@ -762,18 +764,59 @@ def index(request: Request) -> dict:
 
 
 @app.get("/health", tags=["operations"])
-def health(request: Request) -> dict:
-    return {
-        "status": "ok",
+def health(request: Request) -> dict | JSONResponse:
+    identity, identity_valid = _runtime_identity()
+    payload = {
+        "status": "ok" if identity_valid else "unavailable",
         "service": "lucent",
         "version": app.version,
         "policy_version": preflight.POLICY_VERSION,
+        **identity,
         "request_id": _request_id(request),
     }
+    if not identity_valid:
+        return JSONResponse(payload, status_code=503)
+    return payload
+
+
+def _runtime_identity() -> tuple[dict[str, str | None], bool]:
+    source_commit = os.environ.get("FLEET_SOURCE_COMMIT", "")
+    release_id = os.environ.get("FLEET_RELEASE_ID", "")
+    railway_runtime = bool(os.environ.get("RAILWAY_ENVIRONMENT_NAME"))
+    if FULL_GIT_OBJECT_ID_RE.fullmatch(source_commit) and FLEET_RELEASE_ID_RE.fullmatch(
+        release_id
+    ):
+        return {
+            "identity_status": "verified",
+            "source_commit": source_commit,
+            "release_id": release_id,
+        }, True
+    if not source_commit and not release_id and not railway_runtime:
+        return {
+            "identity_status": "local",
+            "source_commit": None,
+            "release_id": None,
+        }, True
+    return {
+        "identity_status": "invalid",
+        "source_commit": None,
+        "release_id": None,
+    }, False
 
 
 @app.get("/ready", tags=["operations"])
-def ready(request: Request) -> dict:
+def ready(request: Request) -> dict | JSONResponse:
+    identity, identity_valid = _runtime_identity()
+    if not identity_valid:
+        return JSONResponse(
+            {
+                "status": "unavailable",
+                "service": "lucent",
+                **identity,
+                "request_id": _request_id(request),
+            },
+            status_code=503,
+        )
     runtime: hosted.HostedRuntime = request.app.state.runtime
     if runtime.settings.access_mode is hosted.AccessMode.DISABLED:
         return _problem(
@@ -786,6 +829,7 @@ def ready(request: Request) -> dict:
     return {
         "status": "ready",
         "service": "lucent",
+        **identity,
         **runtime.readiness(),
         "request_id": _request_id(request),
     }
