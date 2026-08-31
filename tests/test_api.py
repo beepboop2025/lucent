@@ -261,7 +261,12 @@ def test_health_and_request_headers():
     assert readiness["identity_status"] == "local"
 
 
-def test_real_app_registers_operational_routes_without_response_model_inference():
+def test_real_app_registers_and_starts_operational_routes_without_model_inference(
+    monkeypatch,
+):
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
+    monkeypatch.delenv("FLEET_SOURCE_COMMIT", raising=False)
+    monkeypatch.delenv("FLEET_RELEASE_ID", raising=False)
     routes = {
         route.path: route
         for route in app.routes
@@ -271,6 +276,10 @@ def test_real_app_registers_operational_routes_without_response_model_inference(
     assert set(routes) == {"/health", "/ready"}
     assert all(route.response_model is None for route in routes.values())
     assert {"/health", "/ready"} <= set(app.openapi()["paths"])
+    with TestClient(app) as client:
+        response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["identity_status"] == "local"
 
 
 def test_railway_health_and_readiness_require_exact_fleet_identity(monkeypatch):
